@@ -1,0 +1,5 @@
+DOMAIN = "torque"
+API_PATH = "/api/torque"
+CONF_EMAIL = "email"
+CONF_NAME = "name"
+DEFAULT_NAME = "vehicle"
