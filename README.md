@@ -17,15 +17,16 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 ---
 
 ## 📑 Table of Contents
-- [Features](#-features)
-- [Installation & Setup](#-installation--setup)
+- [Features](#features)
+- [Installation & Setup](#installation--setup)
   - [HACS Installation (Recommended)](#hacs-installation-recommended)
   - [Manual Installation](#manual-installation)
   - [Integration Setup](#integration-setup)
   - [Torque App Setup](#torque-app-setup)
 - [FAQ & Troubleshooting](#faq--troubleshooting)
-- [References](#references)
-- [Support & Feedback](#support--feedback)
+- [References](#%F0%9F%93%9A-references)
+- [Support & Feedback](#%F0%9F%93%A8-support--feedback)
+- [License](#%F0%9F%93%9D-license)
 
 ---
 
