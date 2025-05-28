@@ -14,21 +14,6 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 > **🤖 Disclosure: AI-Powered**<br>
 > This integration is maintained and improved with the help of GitHub Copilot among various other AI assistants.<br> 
 > I am not a Python coder by any means. Community feedback, contributions, and code reviews are welcome!
----
-
-## 📑 Table of Contents
-- [Features](#features)
-- [Installation & Setup](#installation--setup)
-  - [HACS Installation (Recommended)](#hacs-installation-recommended)
-  - [Manual Installation](#manual-installation)
-  - [Integration Setup](#integration-setup)
-  - [Torque App Setup](#torque-app-setup)
-- [FAQ & Troubleshooting](#faq--troubleshooting)
-- [References](#%F0%9F%93%9A-references)
-- [Support & Feedback](#%F0%9F%93%A8-support--feedback)
-- [License](#%F0%9F%93%9D-license)
-
----
 
 ## ✨ **Features**
 - 🔧 **No YAML required:** Setup is done via the "add integration" page of Home Assistant, through the UI. 
