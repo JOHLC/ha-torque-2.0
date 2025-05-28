@@ -5,10 +5,14 @@ import logging
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers import config_validation as cv
+import voluptuous as vol
 
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "torque"
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Torque component."""
