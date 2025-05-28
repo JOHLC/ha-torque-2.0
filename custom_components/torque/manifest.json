@@ -1,7 +1,6 @@
 {
   "domain": "torque",
   "name": "Torque",
-  "version": "1.0.2",
   "after_dependencies": ["http"],
   "codeowners": ["@JOHLC"],
   "config_flow": true,
