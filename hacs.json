@@ -2,7 +2,7 @@
   "name": "Torque OBD",
   "content_in_root": false,
   "domains": ["sensor"],
-  "country": "worldwide",
+  "country": "ALL",
   "homeassistant": "2025.05.1",
   "render_readme": true,
   "description": "A Home Assistant integration for real-time vehicle telemetry from the Torque Pro OBD-II app. Automatically creates sensors for all reported PIDs, with state restoration, throttling, and dynamic discovery.",
