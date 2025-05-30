@@ -6,7 +6,7 @@ import logging
 import re
 import time
 
-from aiohttp import web
+from aiohttp import web # type: ignore
 import voluptuous as vol
 
 from homeassistant.components.http import HomeAssistantView
@@ -20,7 +20,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from .const import CONF_EMAIL, CONF_NAME, DOMAIN, DEFAULT_NAME
-from homeassistant.const import DEGREE
+from homeassistant.const import DEGREE # type: ignore
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -228,123 +228,51 @@ class TorqueSensor(RestoreSensor, SensorEntity):
     MIN_UPDATE_INTERVAL = 10  # seconds
     SIGNIFICANT_CHANGE = 0.01  # Only update if value changes by this much (for floats)
 
+    # List of sensor name keywords that are always metric
+    ALWAYS_METRIC_NAMES = [
+        "speed", "distance", "temp", "temperature", "air temp", "coolant", "intake"
+    ]
+
+    METRIC_UNIT_MAP = {
+        # Map keywords to correct metric units
+        "speed": "km/h",
+        "distance": "km",
+        "temp": "°C",
+        "temperature": "°C",
+        "air temp": "°C",
+        "coolant": "°C",
+        "intake": "°C",
+    }
+
     def __init__(self, name: str, unit: str | None, pid: int, vehicle: str, options=None):
-        """Initialize the sensor."""
         self._attr_name = name
-        self._attr_native_unit_of_measurement = unit
         self._pid = pid
         self._vehicle = vehicle
         self._last_update = 0.0
         self._last_reported_value = None
-        self._attr_device_class = self._guess_device_class(unit, name)
-        self._attr_state_class = self._guess_state_class(unit, name)
         self._options = options or {}
-        self._attr_icon = self._pick_icon(name, unit, self._attr_device_class)
+        self._original_unit = unit
+        self._attr_native_unit_of_measurement = self._get_metric_unit(name)
+        self._attr_device_class = self._guess_device_class(self._attr_native_unit_of_measurement, name)
+        self._attr_state_class = self._guess_state_class(self._attr_native_unit_of_measurement, name)
+        self._attr_icon = self._pick_icon(name, self._attr_native_unit_of_measurement, self._attr_device_class)
         _LOGGER.debug(f"TorqueSensor initialized: name={name}, unit={unit}, pid={pid}, vehicle={vehicle}, device_class={self._attr_device_class}, state_class={self._attr_state_class}, icon={self._attr_icon}")
 
-    def _pick_icon(self, name, unit, device_class):
+    def _get_metric_unit(self, name):
         n = name.lower() if name else ""
-        u = unit.lower() if unit else ""
-        # Device class icons
-        if device_class == SensorDeviceClass.TEMPERATURE:
-            return "mdi:thermometer"
-        if device_class == SensorDeviceClass.SPEED:
-            return "mdi:speedometer"
-        if device_class == SensorDeviceClass.DISTANCE:
-            return "mdi:map-marker-distance"
-        if device_class == SensorDeviceClass.PRESSURE:
-            return "mdi:gauge"
-        # Fuel/fuel level/mpg
-        if "fuel" in n or "mpg" in n or "miles per gallon" in n or "mpg" in u or "miles per gallon" in u:
-            return "mdi:gas-station"
-        # Acceleration
-        if "acceleration" in n or "g-force" in n or "gforce" in n:
-            return "mdi:arrow-up-bold"
-        # Battery/voltage
-        if "battery" in n or "voltage" in n or "volt" in u:
-            return "mdi:car-battery"
-        if device_class == SensorDeviceClass.BATTERY:
-            # Only use car-battery if it's not fuel
-            if not ("fuel" in n or "mpg" in n or "miles per gallon" in n):
-                return "mdi:car-battery"
-        # Name/unit-based icons
-        if "rpm" in n:
-            return "mdi:rotate-right"
-        if "throttle" in n:
-            return "mdi:car-cruise-control"
-        if "intake" in n or "air" in n:
-            return "mdi:weather-windy"
-        if "coolant" in n:
-            return "mdi:coolant-temperature"
-        if "load" in n:
-            return "mdi:engine"
-        if "distance" in n:
-            return "mdi:map-marker-distance"
-        if "pressure" in n or "psi" in u or "bar" in u:
-            return "mdi:gauge"
-        if "temperature" in n or "temp" in n:
-            return "mdi:thermometer"
-        if "speed" in n:
-            return "mdi:speedometer"
-        if "timing" in n:
-            return "mdi:clock"
-        if "oxygen" in n:
-            return "mdi:molecule"
-        if "maf" in n:
-            return "mdi:weather-windy"
-        if "mil" in n or "cel" in n:
-            return "mdi:alert"
-        # Default
-        return "mdi:car"
-
-    def _guess_device_class(self, unit, name):
-        if not unit:
-            return None
-        unit = unit.lower()
-        if unit in ("°c", "c", "degc") or "temp" in name.lower():
-            return SensorDeviceClass.TEMPERATURE
-        if unit in ("km/h", "kph", "m/s", "mph") or "speed" in name.lower():
-            return SensorDeviceClass.SPEED
-        if unit in ("km", "m", "mile", "miles") or "distance" in name.lower():
-            return SensorDeviceClass.DISTANCE
-        if unit in ("%",) and "fuel" in name.lower():
-            return SensorDeviceClass.BATTERY
-        if unit in ("bar", "kpa", "psi", "hpa") or "pressure" in name.lower():
-            return SensorDeviceClass.PRESSURE
-        return None
-
-    def _guess_state_class(self, unit, name):
-        # Most OBD sensors are measurements, but some (like odometer) are totals
-        if unit and unit.lower() in ("km", "mile", "miles"):
-            return SensorStateClass.TOTAL
-        return SensorStateClass.MEASUREMENT
-
-    @property
-    def unique_id(self) -> str:
-        """Return a unique ID for this sensor."""
-        return f"torque_{self._vehicle}_{self._pid}"
-
-    @property
-    def device_info(self):
-        """Group sensors under a single device per vehicle."""
-        return {
-            "identifiers": {(DOMAIN, self._vehicle)},
-            "name": f"Torque - {self._vehicle}",
-            "manufacturer": "Torque OBD",
-            "model": "Torque Sensor",
-            "entry_type": "service",
-        }
+        for key, metric_unit in self.METRIC_UNIT_MAP.items():
+            if key in n:
+                return metric_unit
+        return self._original_unit
 
     @callback
     def async_on_update(self, value: str) -> None:
-        """Update the sensor value, throttled."""
         now = time.monotonic()
         try:
             new_value = float(value)
         except (ValueError, TypeError):
             _LOGGER.warning(f"Non-numeric value for PID {self._pid}: {value}")
             return
-        # Only update if enough time has passed or value changed significantly
         should_update = False
         if self._last_reported_value is None:
             should_update = True

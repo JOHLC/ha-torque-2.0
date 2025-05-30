@@ -176,3 +176,5 @@ cython_debug/
 *.db
 *.pyc
 secrets.yaml
+config/**
+config/*
