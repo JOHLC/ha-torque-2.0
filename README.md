@@ -12,11 +12,12 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**Note:** This integration replaces the Home Assistant core Torque integration. You cannot run both at the same time.
 
 > **🤖 Disclosure: AI-Powered**<br>
-> This integration is maintained and improved with the help of GitHub Copilot among various other AI assistants.<br> 
+> This integration is maintained and improved with the help of GitHub Copilot among various other AI assistants.<br>
 > I am not a Python coder by any means. Community feedback, contributions, and code reviews are welcome!
 
 ## ✨ **Features**
-- 🔧 **No YAML required:** Setup is done via the "add integration" page of Home Assistant, through the UI. 
+
+- 🔧 **No YAML required:** Setup is done via the "add integration" page of Home Assistant, through the UI.
 - 💾 **State Restoration:** All sensors (even if Torque is offline) are restored on Home Assistant startup.
 - 📝 **Logging:** Detailed logging for troubleshooting and diagnostics.
 - 🎨 **Smart Icons:** Sensors use context-appropriate Material Design Icons (e.g., gas-station for fuel, speedometer for speed, etc.).
@@ -54,6 +55,7 @@ You can install this integration via [HACS](https://hacs.xyz/) as a custom repos
 2. Restart Home Assistant.
 
 ---
+
 ### ➕ **Integration Setup**
 
 1. Add the integration via **Settings > Devices & Services > Add Integration > Torque**.
@@ -66,43 +68,38 @@ You can install this integration via [HACS](https://hacs.xyz/) as a custom repos
 ---
 
 ### 📱 **Torque App Setup**
-1. Generate a [long-lived access token](https://community.home-assistant.io/t/how-to-get-long-lived-access-token/162159/5?) for your Home Assistant instance. 
-   - Give it a good name like 'Torque - Custom' 
+
+1. Generate a [long-lived access token](https://community.home-assistant.io/t/how-to-get-long-lived-access-token/162159/5?) for your Home Assistant instance.
+   - Give it a good name like 'Torque - Custom'
 2. In the Torque app's main page, go to **Settings > Data Logging & Upload**.
-   - Settings from the live data screen and settings from the main page of the app are different.  
+   - Settings from the live data screen and settings from the main page of the app are different.
 3. Under **Logging Preferences**:
-    - Tap **Select what to log**.
-    - Use the menu to **Add PID to log** and select items of interest.
-4. Under **Realtime web upload**:
-    - Set the webserver URL to your Home Assistant instance: `https://homeassistant.yourdomain.com/api/torque`
-    - Enable 'Send Https: Bearer Token'
-    - Set 'Bearer Token' to the long-lived access code you generated in the previous steps.
-    - Set your email address to match the one used in the integration setup.
-    - Set the 'Logging Interval' to something higher than 10-20 seconds. Anything lower may overload the system.
-    - Optional: Enable 'Only when OBD connected. This will ensure Torque is only sending data when it is actually connected to your vehicle. 
-    - Enable web uploads
-> **🔒 Security Note:**
-> If you are exposing your Home Assistant instance to the internet, you should always use SSL/TLS encryption (HTTPS).<br>
-Never expose your instance over plain HTTP, as this can put your credentials and data at risk.<br>
-See the [Home Assistant documentation on securing your installation](https://www.home-assistant.io/docs/configuration/securing/) for setup instructions.
+   - Tap **Select what to log**.
+   - Use the menu to **Add PID to log** and select items of interest.
+4. Under **Realtime web upload**: - Set the webserver URL to your Home Assistant instance: `https://homeassistant.yourdomain.com/api/torque` - Enable 'Send Https: Bearer Token' - Set 'Bearer Token' to the long-lived access code you generated in the previous steps. - Set your email address to match the one used in the integration setup. - Set the 'Logging Interval' to something higher than 10-20 seconds. Anything lower may overload the system. - Optional: Enable 'Only when OBD connected. This will ensure Torque is only sending data when it is actually connected to your vehicle. - Enable web uploads
+   > **🔒 Security Note:**
+   > If you are exposing your Home Assistant instance to the internet, you should always use SSL/TLS encryption (HTTPS).<br>
+   > Never expose your instance over plain HTTP, as this can put your credentials and data at risk.<br>
+   > See the [Home Assistant documentation on securing your installation](https://www.home-assistant.io/docs/configuration/securing/) for setup instructions.
 
 You should now be all set to start logging data to Home Assistant!
-Sensors will be created once Home Assistant recieves valid data from Torque. 
+Sensors will be created once Home Assistant recieves valid data from Torque.
 
 ---
 
 ## 🙋 **FAQ & Troubleshooting**
 
 - **Sensors missing or not updating?**
-    - Check that the Torque app is uploading to the correct URL and using the correct email.
-    - Ensure the PIDs you want are enabled in Torque's logging preferences.
-    - Force stop the app on your phone, then re-open it.
-    - For testing, make sure that "Only when OBD connected" is not enabled under the app's 'Realtime web upload' settings.
-    - Check your Home Assistant log for any details. You may also want to enable debug logging (see below).
+
+  - Check that the Torque app is uploading to the correct URL and using the correct email.
+  - Ensure the PIDs you want are enabled in Torque's logging preferences.
+  - Force stop the app on your phone, then re-open it.
+  - For testing, make sure that "Only when OBD connected" is not enabled under the app's 'Realtime web upload' settings.
+  - Check your Home Assistant log for any details. You may also want to enable debug logging (see below).
 
 - **Sensor values look off?**
-    - The app may report the unit of measurement in imperial (e.g. mph), but the actual sensor value in metric. The integration assumes the values sent by the Torque app are metric, regardless of the reported unit.
-    - If you encounter an issue with this, please open a GitHub issue and I'll do my best to investigate.
+  - The app may report the unit of measurement in imperial (e.g. mph), but the actual sensor value in metric. The integration assumes the values sent by the Torque app are metric, regardless of the reported unit.
+  - If you encounter an issue with this, please open a GitHub issue and I'll do my best to investigate.
 
 ### 🔍 **Enabling Debug Logging**
 
@@ -134,3 +131,11 @@ logger:
 ## 📝 License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Attribution
+
+This project makes use of documentation and examples from the [Home Assistant documentation](https://www.home-assistant.io/docs/), which is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+Portions of this repository may be adapted from or reference content originally published by the Home Assistant project.  
+Copyright © Home Assistant authors.  
+Licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).

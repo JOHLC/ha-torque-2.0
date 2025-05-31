@@ -1,3 +1,10 @@
+<!--
+Portions of this file are adapted from the Home Assistant documentation.
+Copyright © Home Assistant authors.
+Licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+See: https://creativecommons.org/licenses/by-nc-sa/4.0/
+-->
+
 # AI Code Review Report: Home Assistant Torque Integration
 
 **Date:** 2025-05-31
