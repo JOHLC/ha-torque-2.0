@@ -146,7 +146,6 @@ config/*
 !dev-docs/readme.md
 !dev-docs/README.md
 !dev-docs/home-assistant/
-dev-docs/home-assistant/*
 !dev-docs/home-assistant/ai_code_review.md
 
 
