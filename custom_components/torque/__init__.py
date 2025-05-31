@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers import config_validation as cv
-import voluptuous as vol
+from homeassistant.core import HomeAssistant # type: ignore
+from homeassistant.config_entries import ConfigEntry # type: ignore
+from homeassistant.helpers import config_validation as cv # type: ignore
+import voluptuous as vol # type: ignore
 
 _LOGGER = logging.getLogger(__name__)
 

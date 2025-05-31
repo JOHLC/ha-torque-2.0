@@ -7,12 +7,12 @@ import re
 import time
 
 from aiohttp import web # type: ignore
-import voluptuous as vol
+import voluptuous as vol # type: ignore
 
-from homeassistant.components.http import HomeAssistantView
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.components.http import HomeAssistantView # type: ignore
+from homeassistant.config_entries import ConfigEntry # type: ignore
 
-from homeassistant.components.sensor import (
+from homeassistant.components.sensor import ( # type: ignore
     RestoreSensor,
     PLATFORM_SCHEMA as SENSOR_PLATFORM_SCHEMA,
     SensorEntity,
@@ -21,14 +21,14 @@ from homeassistant.components.sensor import (
 )
 from .const import CONF_EMAIL, CONF_NAME, DOMAIN, DEFAULT_NAME
 from homeassistant.const import DEGREE # type: ignore
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from homeassistant.core import HomeAssistant, callback # type: ignore
+from homeassistant.helpers import config_validation as cv # type: ignore
+from homeassistant.helpers.entity_platform import AddEntitiesCallback # type: ignore
+from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType # type: ignore
 try:
-    from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
+    from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry # type: ignore
 except ImportError:
-    from homeassistant.helpers.entity_registry import async_get_registry as async_get_entity_registry
+    from homeassistant.helpers.entity_registry import async_get_registry as async_get_entity_registry # type: ignore
 
 _LOGGER = logging.getLogger(__name__)
 

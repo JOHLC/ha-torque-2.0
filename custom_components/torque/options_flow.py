@@ -1,7 +1,7 @@
 """Options flow for Torque integration."""
-import voluptuous as vol
-from homeassistant import config_entries
-from homeassistant.core import callback
+import voluptuous as vol # type: ignore
+from homeassistant import config_entries # type: ignore
+from homeassistant.core import callback # type: ignore
 from .const import DOMAIN
 
 class TorqueOptionsFlowHandler(config_entries.OptionsFlow):

@@ -1,6 +1,6 @@
-import voluptuous as vol
-from homeassistant import config_entries
-from homeassistant.helpers import config_validation as cv
+import voluptuous as vol # type: ignore
+from homeassistant import config_entries # type: ignore
+from homeassistant.helpers import config_validation as cv # type: ignore
 from .const import DOMAIN, DEFAULT_NAME, CONF_EMAIL, CONF_NAME
 
 class TorqueConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
