@@ -6,7 +6,7 @@
     "python.linting.mypyEnabled": true,
     "python.linting.pylintEnabled": false,
     "editor.codeActionsOnSave": {
-        "source.organizeImports": true
+        "source.organizeImports": "explicit"
     },
 
     // Home Assistant specific
