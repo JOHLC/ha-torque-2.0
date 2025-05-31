@@ -35,5 +35,6 @@
     "python.analysis.typeCheckingMode": "basic",
     "python.analysis.extraPaths": [
         "./custom_components"
-    ]
+    ],
+    "git.commitTemplate": "${workspaceFolder}/.vscode/.gitmessage.txt"
 }
