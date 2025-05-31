@@ -142,7 +142,7 @@ config/**
 config/*
 
 # Ignore downloaded developer docs
-dev-docs/*
+
 !dev-docs/readme.md
 !dev-docs/README.md
 !dev-docs/home-assistant/
