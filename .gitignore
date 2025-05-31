@@ -178,3 +178,11 @@ cython_debug/
 secrets.yaml
 config/**
 config/*
+
+# Ignore downloaded developer docs
+dev-docs/
+
+# VSCode settings (except shared settings/extensions)
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json

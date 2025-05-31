@@ -1,0 +1,12 @@
+{
+    "recommendations": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter",
+        "esbenp.prettier-vscode",
+        "charliermarsh.ruff",
+        "github.vscode-pull-request-github",
+        "redhat.vscode-yaml",
+        "keesschollaart.vscode-home-assistant"
+    ]
+}
