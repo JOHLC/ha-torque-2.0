@@ -148,3 +148,4 @@ dev-docs/
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
+!.vscode/.gitmessage.txt

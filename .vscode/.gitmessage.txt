@@ -1,0 +1,13 @@
+# [Component] Short, imperative summary (max 50 chars)
+
+# What was changed?
+#
+# - Briefly describe the motivation and context for this change.
+# - List key changes, enhancements, or fixes.
+# - Reference related issues, PRs, or docs if applicable.
+#
+# How was it tested?
+#
+# - Describe testing steps or add "pytest" if tests were added/updated.
+# Test message
+# Additional notes (breaking changes, migration, etc.)
