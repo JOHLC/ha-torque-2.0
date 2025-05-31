@@ -143,6 +143,11 @@ config/*
 
 # Ignore downloaded developer docs
 dev-docs/
+!dev-docs/home-assistant/ai_code_review.md
+!dev-docs/readme.md
+!dev-docs/README.md
+
+
 
 # VSCode settings (except shared settings/extensions)
 .vscode/*
