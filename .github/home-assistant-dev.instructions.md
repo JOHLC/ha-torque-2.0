@@ -4774,14 +4774,7 @@ Name	Type		Description
 client_id	str	Required	The OAuth Client ID provided by the user.
 client_secret	str	Required	The OAuth Client Secret provided by the user.
 Translations
-Translations for Application Credentials are defined under the application_credentials key in the component translation file strings.json. As an example:
-
-{
-    "application_credentials": {
-        "description": "Navigate to the [developer console]({console_url}) to create credentials then enter them below.",
-    }
-}
-
+Translations for Application Credentials are defined under the application_credentials key in the component translation file strings.json. As an example
 
 You may optionally add description placeholder keys that are added to the message by adding a new method in application_credentials.py like the following:
 
