@@ -12,12 +12,13 @@
     // Home Assistant specific
     "files.exclude": {
         "**/__pycache__": true,
-        "**/*.pyc": true,
-        "**/*.pyo": true,
-        "**/*.egg-info": true,
-        "**/.pytest_cache": true,
+        "**/.git": false,
         "**/.mypy_cache": true,
-        "**/.ruff_cache": true
+        "**/.pytest_cache": true,
+        "**/.ruff_cache": true,
+        "**/*.egg-info": true,
+        "**/*.pyc": true,
+        "**/*.pyo": true
     },
     "yaml.schemas": {
         "https://json.schemastore.org/github-workflow.json": "file:///workspaces/ha-torque-2.0/.github/workflows/*",
@@ -36,5 +37,6 @@
     "python.analysis.extraPaths": [
         "./custom_components"
     ],
-    "git.commitTemplate": "${workspaceFolder}/.vscode/.gitmessage.txt"
+    "git.commitTemplate": "${workspaceFolder}/.vscode/.gitmessage.txt",
+    "explorer.excludeGitIgnore": false
 }
