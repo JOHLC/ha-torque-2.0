@@ -8,6 +8,8 @@ These instructions ensure high-quality, maintainable, and consistent code for Ho
 - If unsure about a Home Assistant feature or API, ask for clarification before proceeding.
 - Always check the latest Home Assistant documentation for APIs and features before implementing.
 - Always reference all files in the repository when providing code suggestions or thinking about implementation.
+- Always update the commit message with a clear and descriptive commit message in Markdown format, following the conventional commits format.
+- Ignore .git/
 
 ## Home Assistant API Usage
 

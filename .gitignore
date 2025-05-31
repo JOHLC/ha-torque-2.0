@@ -155,3 +155,7 @@ config/*
 !.vscode/settings.json
 !.vscode/extensions.json
 !.vscode/.gitmessage.txt
+
+# Ignore Git internal directories (not needed, but for explicit clarity)
+.git/
+!.git/COMMIT_EDITMSG
