@@ -46,18 +46,6 @@ NAME_KEY = re.compile(SENSOR_NAME_KEY)
 UNIT_KEY = re.compile(SENSOR_UNIT_KEY)
 VALUE_KEY = re.compile(SENSOR_VALUE_KEY)
 
-IMPERIAL_TO_METRIC_UNITS = {
-    "mph": "km/h",
-    "miles": "km",
-    "°F": "°C",
-    "F": "°C",
-    "mile": "km",
-    "Miles": "km",
-    "MPH": "km/h",
-    "Mile": "km",
-    # Add more as needed
-}
-
 ## PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend({
 ##    vol.Required(CONF_EMAIL): cv.string,
 ##    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
@@ -170,9 +158,6 @@ class TorqueReceiveDataView(HomeAssistantView):
                 pid = convert_pid(match.group(1))
                 if pid is not None:
                     unit = value.replace("\\xC2\\xB0", DEGREE)
-                    unit = IMPERIAL_TO_METRIC_UNITS.get(unit, unit)
-                    if unit is None:
-                        unit = "km/h"
                     units[pid] = unit
                     _LOGGER.debug(f"Parsed unit: pid={pid}, unit={unit}")
                 else:
