@@ -33,7 +33,7 @@ except ImportError:
 _LOGGER = logging.getLogger(__name__)
 
 API_PATH = "/api/torque"
-DEFAULT_NAME = "vehicle"
+DEFAULT_NAME = "Torque"
 DOMAIN = "torque"
 ENTITY_NAME_FORMAT = "{0} {1}"
 
@@ -238,7 +238,7 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         self._options = options or {}
         self._original_unit = unit
         self._attr_native_unit_of_measurement = self._get_metric_unit(name)
-        self._attr_device_class = self._guess_device_class(self._attr_native_unit_of_measurement, name)
+        self._attr_device_class = None  # Never guess or set device_class
         self._attr_state_class = self._guess_state_class(self._attr_native_unit_of_measurement, name)
         self._attr_icon = self._pick_icon(name, self._attr_native_unit_of_measurement, self._attr_device_class)
         _LOGGER.debug(f"TorqueSensor initialized: name={name}, unit={unit}, pid={pid}, vehicle={vehicle}, device_class={self._attr_device_class}, state_class={self._attr_state_class}, icon={self._attr_icon}")
@@ -303,34 +303,6 @@ class TorqueSensor(RestoreSensor, SensorEntity):
     def suggested_display_precision(self) -> int:
         """Suggest the display precision for this sensor."""
         return 2
-
-    def _guess_device_class(self, unit: str | None, name: str | None) -> str | None:
-        """Guess the Home Assistant device class based on unit or name."""
-        if not unit:
-            return None
-        unit = unit.lower()
-        if unit in ("°c", "c", "celsius"):
-            return SensorDeviceClass.TEMPERATURE
-        if unit in ("km/h", "m/s", "mph", "kn", "ft/s"):
-            return SensorDeviceClass.SPEED
-        if unit in ("km", "m", "mi", "nmi", "yd", "in"):
-            return SensorDeviceClass.DISTANCE
-        if unit in ("l", "ml", "gal", "m³", "ft³", "ccf"):
-            return SensorDeviceClass.VOLUME
-        if unit in ("%",):
-            if name and "humidity" in name.lower():
-                return SensorDeviceClass.HUMIDITY
-        if unit in ("pa", "kpa", "bar", "psi", "hpa", "mbar", "mmhg", "inhg"):
-            return SensorDeviceClass.PRESSURE
-        if unit in ("a", "ma"):
-            return SensorDeviceClass.CURRENT
-        if unit in ("v", "mv", "kv"):
-            return SensorDeviceClass.VOLTAGE
-        if unit in ("w", "kw", "mw", "gw", "tw"):
-            return SensorDeviceClass.POWER
-        if unit in ("j", "kj", "mj", "gj", "wh", "kwh", "mwh", "gwh", "twh", "cal", "kcal", "mcal", "gcal"):
-            return SensorDeviceClass.ENERGY
-        return None
 
     def _guess_state_class(self, unit: str | None, name: str | None) -> str | None:
         """Guess the Home Assistant state class. Default to measurement."""

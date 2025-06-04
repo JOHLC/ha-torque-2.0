@@ -34,7 +34,7 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 - 🎨 **Smart Icons:** Sensors use context-appropriate Material Design Icons (e.g., gas-station for fuel, speedometer for speed, etc.).
 - 🧩 **Unique IDs & Grouping:** All sensors have unique IDs and are grouped per vehicle for easy management.
 - 🚙 **Automatic sensor discovery:** New sensors appear as new PIDs are received from Torque.
-- 🏷️ **Device Class & State Class:** Sensors are assigned appropriate `device_class` and `state_class` for better UI and statistics.
+- 🏷️ **State Class Only:** Sensors are assigned `state_class` for better statistics. No `device_class` is set or guessed. The unit of measurement is always treated as metric, regardless of what Torque reports.
 - ⚖️ **Native Metric Handling:** All values from Torque are always treated as metric. Home Assistant handles any user-selected unit conversion in the UI.
 
 **Untested features:**
