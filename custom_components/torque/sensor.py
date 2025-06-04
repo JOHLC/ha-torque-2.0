@@ -242,6 +242,7 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         self._attr_state_class = self._guess_state_class(self._attr_native_unit_of_measurement, name)
         self._attr_icon = self._pick_icon(name, self._attr_native_unit_of_measurement, self._attr_device_class)
         _LOGGER.debug(f"TorqueSensor initialized: name={name}, unit={unit}, pid={pid}, vehicle={vehicle}, device_class={self._attr_device_class}, state_class={self._attr_state_class}, icon={self._attr_icon}")
+        self._non_numeric_warning_logged: bool = False
 
     def _get_metric_unit(self, name):
         n = name.lower() if name else ""
@@ -255,8 +256,11 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         now = time.monotonic()
         try:
             new_value = float(value)
+            self._non_numeric_warning_logged = False  # Reset warning flag on valid value
         except (ValueError, TypeError):
-            _LOGGER.warning(f"Non-numeric value for PID {self._pid}: {value}")
+            if not self._non_numeric_warning_logged:
+                _LOGGER.warning(f"Non-numeric value for PID {self._pid}: {value}")
+                self._non_numeric_warning_logged = True
             return
         should_update = False
         if self._last_reported_value is None:
@@ -271,9 +275,9 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             self._last_reported_value = new_value
             self._last_update = now
             self.async_write_ha_state()
-            _LOGGER.debug(f"TorqueSensor '{self._attr_name}' updated: value={new_value}")
-        else:
-            _LOGGER.debug(f"TorqueSensor '{self._attr_name}' throttled: value={new_value}")
+            if _LOGGER.isEnabledFor(logging.DEBUG):
+                _LOGGER.debug(f"TorqueSensor '{self._attr_name}' updated: value={new_value}")
+        # Do not log throttled updates to avoid log spam
 
     async def async_added_to_hass(self):
         """Restore state on restart using native_value from RestoreSensor."""
@@ -299,3 +303,35 @@ class TorqueSensor(RestoreSensor, SensorEntity):
     def suggested_display_precision(self) -> int:
         """Suggest the display precision for this sensor."""
         return 2
+
+    def _guess_device_class(self, unit: str | None, name: str | None) -> str | None:
+        """Guess the Home Assistant device class based on unit or name."""
+        if not unit:
+            return None
+        unit = unit.lower()
+        if unit in ("°c", "c", "celsius"):
+            return SensorDeviceClass.TEMPERATURE
+        if unit in ("km/h", "m/s", "mph", "kn", "ft/s"):
+            return SensorDeviceClass.SPEED
+        if unit in ("km", "m", "mi", "nmi", "yd", "in"):
+            return SensorDeviceClass.DISTANCE
+        if unit in ("l", "ml", "gal", "m³", "ft³", "ccf"):
+            return SensorDeviceClass.VOLUME
+        if unit in ("%",):
+            if name and "humidity" in name.lower():
+                return SensorDeviceClass.HUMIDITY
+        if unit in ("pa", "kpa", "bar", "psi", "hpa", "mbar", "mmhg", "inhg"):
+            return SensorDeviceClass.PRESSURE
+        if unit in ("a", "ma"):
+            return SensorDeviceClass.CURRENT
+        if unit in ("v", "mv", "kv"):
+            return SensorDeviceClass.VOLTAGE
+        if unit in ("w", "kw", "mw", "gw", "tw"):
+            return SensorDeviceClass.POWER
+        if unit in ("j", "kj", "mj", "gj", "wh", "kwh", "mwh", "gwh", "twh", "cal", "kcal", "mcal", "gcal"):
+            return SensorDeviceClass.ENERGY
+        return None
+
+    def _guess_state_class(self, unit: str | None, name: str | None) -> str | None:
+        """Guess the Home Assistant state class. Default to measurement."""
+        return SensorStateClass.MEASUREMENT

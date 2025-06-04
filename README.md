@@ -15,6 +15,17 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 > This integration is maintained and improved with the help of GitHub Copilot among various other AI assistants.<br>
 > I am not a Python coder by any means. Community feedback, contributions, and code reviews are welcome!
 
+## 🆕 What's New in v2025.05.0-b2
+
+- **Unit Handling Simplified:**
+  - All manual unit conversion logic has been removed. The integration now assumes all values received from the Torque app are metric, as per the app's behavior.
+  - Home Assistant will handle any user-selected unit conversion in the UI. This ensures more accurate and consistent sensor values and leverages Home Assistant's built-in unit management.
+- **Internal Cleanup:**
+  - Legacy imperial-to-metric conversion logic has been removed from the codebase.
+  - The `TorqueSensor` class and data ingestion now only map units for display, not for value conversion.
+- **Breaking Change:**
+  - If you previously relied on the integration to convert imperial values to metric, please note that this is now handled by Home Assistant. All values from Torque must be sent as metric.
+
 ## ✨ **Features**
 
 - 🔧 **No YAML required:** Setup is done via the "add integration" page of Home Assistant, through the UI.
@@ -23,12 +34,13 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 - 🎨 **Smart Icons:** Sensors use context-appropriate Material Design Icons (e.g., gas-station for fuel, speedometer for speed, etc.).
 - 🧩 **Unique IDs & Grouping:** All sensors have unique IDs and are grouped per vehicle for easy management.
 - 🚙 **Automatic sensor discovery:** New sensors appear as new PIDs are received from Torque.
+- 🏷️ **Device Class & State Class:** Sensors are assigned appropriate `device_class` and `state_class` for better UI and statistics.
+- ⚖️ **Native Metric Handling:** All values from Torque are always treated as metric. Home Assistant handles any user-selected unit conversion in the UI.
 
 **Untested features:**
 
 - 🛠️ **Options Flow for Customization:** Easily hide or rename sensors (by PID) from the Home Assistant UI—no YAML or file editing required.
 - 🛡️ **Error Handling:** Malformed or unexpected data is safely ignored and logged for troubleshooting.
-- 🏷️ **Device Class & State Class:** Sensors are assigned appropriate `device_class` and `state_class` for better UI and statistics.
 
 ---
 
@@ -98,7 +110,7 @@ Sensors will be created once Home Assistant recieves valid data from Torque.
   - Check your Home Assistant log for any details. You may also want to enable debug logging (see below).
 
 - **Sensor values look off?**
-  - The app may report the unit of measurement in imperial (e.g. mph), but the actual sensor value in metric. The integration assumes the values sent by the Torque app are metric, regardless of the reported unit.
+  - The integration now always assumes the values sent by the Torque app are metric, regardless of the reported unit. Home Assistant will handle any conversion for display based on your UI preferences.
   - If you encounter an issue with this, please open a GitHub issue and I'll do my best to investigate.
 
 ### 🔍 **Enabling Debug Logging**
