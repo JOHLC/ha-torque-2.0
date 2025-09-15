@@ -1,67 +1,153 @@
-# Send to Home Assistant – Chrome/Edge Extension
+# 🚗 **Torque OBD Custom Integration for Home Assistant**
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/home-assistant/brands/refs/heads/master/custom_integrations/torque_logger/icon%402x.png" alt="Torque OBD Logo" width="125" />
+  <img src="https://brands.home-assistant.io/_/torque/logo@2x.png" alt="Torque OBD Logo" width="300" />
+</p>
 
-<img src="https://raw.githubusercontent.com/JOHLC/Send-to-Home-Assistant/refs/heads/main/package/icon.png" alt="Send to Home Assistant Logo" width="250" />
+Bring your car's real-time OBD-II data into Home Assistant using the [Torque Pro](https://torque-bhp.com/) app.<br>
+This integration creates sensors for every OBD-II PID that your car reports, enabling automation, visualization, and monitoring of your vehicle.
 
-This all started because I wanted to be able to send the current web page from my computer to my phone. With the use of Copilot Chat, ChatGPT, Gemini, and other AI resources, I was able to clobber something pretty cool (in my eyes) together.
+**⚡️ Modern rewrite of the Torque logger integration for Home Assistant.**<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**Note:** This integration replaces the Home Assistant core Torque integration. You cannot run both at the same time.
 
-Send to Home Assistant is a simple browser extension that sends the current page’s details (URL, title, favicon, selected text, and more) to your Home Assistant instance via a webhook. Perfect for creating automations or quickly capturing content from any site.  
+> **🤖 Disclosure: AI-Powered**<br>
+> This integration is maintained and improved with the help of GitHub Copilot among various other AI assistants.<br>
+> I am not a Python coder by any means. Community feedback, contributions, and code reviews are welcome!
 
-> **⚠️ General Disclaimer**
-> This project is provided *as is*, without any warranty of any kind. The author takes no responsibility for any issues, damages, or losses arising from its use. Use at your own risk.  
->
-> **🤖 Disclaimer: AI-Powered**
-> This project includes code and documentation produced with AI assistance. AI output may contain mistakes, omissions, or insecure patterns. Always test and verify before trusting it in your setup.
->
-> Community feedback, contributions, and code reviews are not only welcome, they're encouraged!  
+## 🆕 What's New in v2025.05.0-b2
 
-## Features  
+- **Unit Handling Simplified:**
+  - All manual unit conversion logic has been removed. The integration now assumes all values received from the Torque app are metric, as per the app's behavior.
+  - Home Assistant will handle any user-selected unit conversion in the UI. This ensures more accurate and consistent sensor values and leverages Home Assistant's built-in unit management.
+- **Internal Cleanup:**
+  - Legacy imperial-to-metric conversion logic has been removed from the codebase.
+  - The `TorqueSensor` class and data ingestion now only map units for display, not for value conversion.
+- **Breaking Change:**
+  - If you previously relied on the integration to convert imperial values to metric, please note that this is now handled by Home Assistant. All values from Torque must be sent as metric.
 
-- One click: send the current tab’s details to Home Assistant.  
-- Clean popup UI with status updates, payload preview, and copy-as-JSON.  
-- Options page to configure your Home Assistant host, SSL, webhook ID, and optional username.  
-- Built-in webhook test from the options page.  
-- Clear error handling and user feedback.  
-- Works on any website (except browser internal pages like `chrome://` or `edge://`).  
+## ✨ **Features**
 
-## Installation  
-1. Download or clone this repository.  
-2. In Chrome or Edge, open `chrome://extensions` or `edge://extensions`.  
-3. Enable **Developer mode**.  
-4. Click **Load unpacked** and select the `package/` folder from this repo.  
-5. Open the extension options and configure your Home Assistant host, SSL, webhook ID, and optional username.  
+- 🔧 **No YAML required:** Setup is done via the "add integration" page of Home Assistant, through the UI.
+- 💾 **State Restoration:** All sensors (even if Torque is offline) are restored on Home Assistant startup.
+- 📝 **Logging:** Detailed logging for troubleshooting and diagnostics.
+- 🎨 **Smart Icons:** Sensors use context-appropriate Material Design Icons (e.g., gas-station for fuel, speedometer for speed, etc.).
+- 🧩 **Unique IDs & Grouping:** All sensors have unique IDs and are grouped per vehicle for easy management.
+- 🚙 **Automatic sensor discovery:** New sensors appear as new PIDs are received from Torque.
+- 🏷️ **State Class Only:** Sensors are assigned `state_class` for better statistics. No `device_class` is set or guessed. The unit of measurement is always treated as metric, regardless of what Torque reports.
+- ⚖️ **Native Metric Handling:** All values from Torque are always treated as metric. Home Assistant handles any user-selected unit conversion in the UI.
 
-## Configuration  
+**Untested features:**
 
-1. Open the extension options (via the popup gear icon or right-click → **Extension options**).  
-2. Enter your Home Assistant hostname or IP (e.g., `myhome.duckdns.org` or `192.168.1.2`).  
-3. Choose whether to use SSL (you should be!).  
-4. Enter your Home Assistant **Webhook ID** (not the full URL, just the ID).  
-5. Optionally, add a username to include in the payload.  
-6. Click **Test** to confirm the webhook is reachable, then **Save** your settings.  
+- 🛠️ **Options Flow for Customization:** Easily hide or rename sensors (by PID) from the Home Assistant UI—no YAML or file editing required.
+- 🛡️ **Error Handling:** Malformed or unexpected data is safely ignored and logged for troubleshooting.
 
-## Usage  
+---
 
-- Click the extension icon on any page to send its info directly to your Home Assistant webhook.  
-- The popup shows real-time status, a payload preview, and a copy-to-clipboard button. 
-- Update or test your webhook anytime in the options page.  
+## 🚀 **Installation & Setup**
 
-## Security & Privacy  
+#### 🛠️ **HACS Installation (Recommended)**
 
-- Only the current page’s info (URL, title, favicon, user_agent, selected text (if any), and the optional username) is sent.  
-- All settings are stored using Chrome/Edge sync storage.
-- SSL is strongly recommended; you’ll be warned if it’s not enabled.
+You can install this integration via [HACS](https://hacs.xyz/) as a custom repository:
 
-## Screenshots
+1. In Home Assistant, go to **HACS > Integrations**.
+2. Click the three dots (⋮) in the top right and select **Custom repositories**.
+3. Add this repository URL as type: **Integration**:
 
-### Options Page
+   ```
+   https://github.com/JOHLC/ha-torque-2.0/
+   ```
 
-<img src="https://raw.githubusercontent.com/JOHLC/Send-to-Home-Assistant/refs/heads/main/assets/screenshot-1.png" alt="Options Page Screenshot" width="600" />
+4. Search for "Torque" in HACS and install this integration.
+5. Restart Home Assistant.
 
-## License  
+#### 🖐️ **Manual Installation**
 
-MIT  
+1. Copy the `torque` folder to your Home Assistant `custom_components` directory.
+2. Restart Home Assistant.
 
----  
+---
 
-**Home Assistant** is an open-source home automation platform. Learn more at [home-assistant.io](https://www.home-assistant.io/).  
+### ➕ **Integration Setup**
+
+1. Add the integration via **Settings > Devices & Services > Add Integration > Torque**.
+2. Enter an email address
+   - Can be anything, but must match what you enter into the Torque app setup below.
+3. Enter a name for the vehicle
+   - Example: 2023 Ford EcoSport
+4. Click submit then click finish
+
+---
+
+### 📱 **Torque App Setup**
+
+1. Generate a [long-lived access token](https://community.home-assistant.io/t/how-to-get-long-lived-access-token/162159/5?) for your Home Assistant instance.
+   - Give it a good name like 'Torque - Custom'
+2. In the Torque app's main page, go to **Settings > Data Logging & Upload**.
+   - Settings from the live data screen and settings from the main page of the app are different.
+3. Under **Logging Preferences**:
+   - Tap **Select what to log**.
+   - Use the menu to **Add PID to log** and select items of interest.
+4. Under **Realtime web upload**: - Set the webserver URL to your Home Assistant instance: `https://homeassistant.yourdomain.com/api/torque` - Enable 'Send Https: Bearer Token' - Set 'Bearer Token' to the long-lived access code you generated in the previous steps. - Set your email address to match the one used in the integration setup. - Set the 'Logging Interval' to something higher than 10-20 seconds. Anything lower may overload the system. - Optional: Enable 'Only when OBD connected. This will ensure Torque is only sending data when it is actually connected to your vehicle. - Enable web uploads
+   > **🔒 Security Note:**
+   > If you are exposing your Home Assistant instance to the internet, you should always use SSL/TLS encryption (HTTPS).<br>
+   > Never expose your instance over plain HTTP, as this can put your credentials and data at risk.<br>
+   > See the [Home Assistant documentation on securing your installation](https://www.home-assistant.io/docs/configuration/securing/) for setup instructions.
+
+You should now be all set to start logging data to Home Assistant!
+Sensors will be created once Home Assistant recieves valid data from Torque.
+
+---
+
+## 🙋 **FAQ & Troubleshooting**
+
+- **Sensors missing or not updating?**
+
+  - Check that the Torque app is uploading to the correct URL and using the correct email.
+  - Ensure the PIDs you want are enabled in Torque's logging preferences.
+  - Force stop the app on your phone, then re-open it.
+  - For testing, make sure that "Only when OBD connected" is not enabled under the app's 'Realtime web upload' settings.
+  - Check your Home Assistant log for any details. You may also want to enable debug logging (see below).
+
+- **Sensor values look off?**
+  - The integration now always assumes the values sent by the Torque app are metric, regardless of the reported unit. Home Assistant will handle any conversion for display based on your UI preferences.
+  - If you encounter an issue with this, please open a GitHub issue and I'll do my best to investigate.
+
+### 🔍 **Enabling Debug Logging**
+
+To enable debug logging for this integration, add the following to your `configuration.yaml` and restart Home Assistant. This will show detailed logs from the integration in **Settings > System > Logs**.
+
+> **Note:** This may quickly fill up your log as the logging is quite verbose. Remember to remove or revert back to a less verbose level.
+
+```yaml
+logger:
+  default: info
+  logs:
+    custom_components.torque: debug
+```
+
+## 📚 **References**
+
+- [Torque Pro App](https://torque-bhp.com/)
+- [Home Assistant Custom Integration Docs](https://developers.home-assistant.io/docs/creating_integration_file_structure/)
+
+---
+
+## 📨 **Support & Feedback**
+
+- For questions, suggestions, or bug reports, please [open an issue](https://github.com/JOHLC/ha-torque-2.0/issues) on GitHub.
+- Contributions and PRs are welcome!
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Attribution
+
+This project makes use of documentation and examples from the [Home Assistant documentation](https://www.home-assistant.io/docs/), which is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+Portions of this repository may be adapted from or reference content originally published by the Home Assistant project.  
+Copyright © Home Assistant authors.  
+Licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
