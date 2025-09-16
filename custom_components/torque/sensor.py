@@ -5,77 +5,95 @@ from __future__ import annotations
 import logging
 import re
 import time
+from re import Pattern
+from typing import Any
 
-from aiohttp import web # type: ignore
-import voluptuous as vol # type: ignore
-
-from homeassistant.components.http import HomeAssistantView # type: ignore
-from homeassistant.config_entries import ConfigEntry # type: ignore
-
-from homeassistant.components.sensor import ( # type: ignore
+from aiohttp import web
+from homeassistant.components.http import HomeAssistantView
+from homeassistant.components.sensor import (
     RestoreSensor,
-    PLATFORM_SCHEMA as SENSOR_PLATFORM_SCHEMA,
     SensorEntity,
-    SensorDeviceClass,
     SensorStateClass,
 )
-from .const import CONF_EMAIL, CONF_NAME, DOMAIN, DEFAULT_NAME
-from homeassistant.const import DEGREE # type: ignore
-from homeassistant.core import HomeAssistant, callback # type: ignore
-from homeassistant.helpers import config_validation as cv # type: ignore
-from homeassistant.helpers.entity_platform import AddEntitiesCallback # type: ignore
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType # type: ignore
-try:
-    from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry # type: ignore
-except ImportError:
-    from homeassistant.helpers.entity_registry import async_get_registry as async_get_entity_registry # type: ignore
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfTemperature
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_registry import (
+    async_get as async_get_entity_registry,
+)
+
+from .const import (
+    API_PATH,
+    CONF_EMAIL,
+    CONF_NAME,
+    DEFAULT_NAME,
+    DOMAIN,
+    MIN_UPDATE_INTERVAL,
+    SENSOR_EMAIL_FIELD,
+    SENSOR_NAME_KEY,
+    SENSOR_UNIT_KEY,
+    SENSOR_VALUE_KEY,
+    SIGNIFICANT_CHANGE,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
-API_PATH = "/api/torque"
-DEFAULT_NAME = "Torque"
-DOMAIN = "torque"
-ENTITY_NAME_FORMAT = "{0} {1}"
-
-SENSOR_EMAIL_FIELD = "eml"
-SENSOR_NAME_KEY = r"userFullName(\w+)"
-SENSOR_UNIT_KEY = r"userUnit(\w+)"
-SENSOR_VALUE_KEY = r"k(\w+)"
-
-NAME_KEY = re.compile(SENSOR_NAME_KEY)
-UNIT_KEY = re.compile(SENSOR_UNIT_KEY)
-VALUE_KEY = re.compile(SENSOR_VALUE_KEY)
-
-## PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend({
-##    vol.Required(CONF_EMAIL): cv.string,
-##    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
-## })
+# Compiled regex patterns for better performance
+NAME_KEY: Pattern[str] = re.compile(SENSOR_NAME_KEY)
+UNIT_KEY: Pattern[str] = re.compile(SENSOR_UNIT_KEY)
+VALUE_KEY: Pattern[str] = re.compile(SENSOR_VALUE_KEY)
 
 
 def convert_pid(value: str) -> int | None:
-    """Convert PID from hex string to integer. Return None if conversion fails."""
+    """Convert PID from hex string to integer.
+
+    Args:
+        value: Hex string value to convert
+
+    Returns:
+        Integer PID value or None if conversion fails
+    """
     try:
-        _LOGGER.debug(f"Converting PID from value: {value}")
+        _LOGGER.debug("Converting PID from value: %s", value)
         return int(value, 16)
-    except (ValueError, TypeError) as e:
-        _LOGGER.warning(f"Failed to convert PID from value '{value}': {e}")
+    except (ValueError, TypeError) as exc:
+        _LOGGER.warning("Failed to convert PID from value '%s': %s", value, exc)
         return None
 
 
-async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    """Set up Torque sensors from a config entry."""
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Torque sensors from a config entry.
+
+    Args:
+        hass: Home Assistant instance
+        config_entry: Configuration entry for the integration
+        async_add_entities: Callback to add entities
+    """
     email = config_entry.data[CONF_EMAIL]
     vehicle = config_entry.data.get(CONF_NAME, DEFAULT_NAME)
     sensors: dict[int, TorqueSensor] = {}
-    _LOGGER.info(f"Setting up Torque entry: email={email}, vehicle={vehicle}, entry_id={config_entry.entry_id}")
+
+    _LOGGER.info(
+        "Setting up Torque entry: email=%s, vehicle=%s, entry_id=%s",
+        email,
+        vehicle,
+        config_entry.entry_id,
+    )
 
     # Restore previously known sensors from the entity registry
     entity_registry = async_get_entity_registry(hass)
     known_entities = [
-        e for e in entity_registry.entities.values()
-        if e.platform == DOMAIN and e.config_entry_id == config_entry.entry_id
+        entity
+        for entity in entity_registry.entities.values()
+        if entity.platform == DOMAIN and entity.config_entry_id == config_entry.entry_id
     ]
-    new_entities = []
+
+    new_entities: list[TorqueSensor] = []
     for entity in known_entities:
         # Extract PID from unique_id (assume format: torque_<vehicle>_<pid>)
         parts = entity.unique_id.split("_")
@@ -83,24 +101,46 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
             try:
                 pid = int(parts[-1])
                 name = entity.original_name or f"PID {pid}"
-                unit = getattr(entity, 'unit_of_measurement', '') or ''
-                sensor = TorqueSensor(name, unit, pid, vehicle, config_entry.options)
+                unit = getattr(entity, "unit_of_measurement", "") or ""
+
+                sensor = TorqueSensor(
+                    name=name,
+                    unit=unit,
+                    pid=pid,
+                    vehicle=vehicle,
+                    options=config_entry.options,
+                )
                 sensors[pid] = sensor
                 new_entities.append(sensor)
-            except Exception as ex:
-                _LOGGER.debug(f"Could not restore sensor for entity {entity.entity_id}: {ex}")
+
+            except Exception as exc:
+                _LOGGER.debug(
+                    "Could not restore sensor for entity %s: %s", entity.entity_id, exc
+                )
+
     if new_entities:
         async_add_entities(new_entities, update_before_add=True)
-        _LOGGER.info(f"Restored {len(new_entities)} Torque sensors from registry for {vehicle}")
+        _LOGGER.info(
+            "Restored %d Torque sensors from registry for %s",
+            len(new_entities),
+            vehicle,
+        )
 
+    # Register the HTTP view for receiving Torque data
     hass.http.register_view(
-        TorqueReceiveDataView(email, vehicle, sensors, async_add_entities, config_entry)
+        TorqueReceiveDataView(
+            email=email,
+            vehicle=vehicle,
+            sensors=sensors,
+            async_add_entities=async_add_entities,
+            config_entry=config_entry,
+        )
     )
     _LOGGER.debug("TorqueReceiveDataView registered for API path %s", API_PATH)
 
 
 class TorqueReceiveDataView(HomeAssistantView):
-    """Handle data from Torque requests."""
+    """Handle data from Torque HTTP requests."""
 
     url = API_PATH
     name = "api:torque"
@@ -112,198 +152,515 @@ class TorqueReceiveDataView(HomeAssistantView):
         vehicle: str,
         sensors: dict[int, TorqueSensor],
         async_add_entities: AddEntitiesCallback,
-        config_entry=None,
+        config_entry: ConfigEntry | None = None,
     ) -> None:
-        """Initialize a Torque view."""
+        """Initialize a Torque data receiver view.
+
+        Args:
+            email: Expected email address for authentication
+            vehicle: Vehicle name for this integration instance
+            sensors: Dictionary of existing sensors by PID
+            async_add_entities: Callback to add new entities
+            config_entry: Configuration entry for options access
+        """
         self.email = email
         self.vehicle = vehicle
         self.sensors = sensors
         self.async_add_entities = async_add_entities
         self.config_entry = config_entry
-        _LOGGER.debug(f"TorqueReceiveDataView initialized: email={email}, vehicle={vehicle}")
+
+        _LOGGER.debug(
+            "TorqueReceiveDataView initialized: email=%s, vehicle=%s", email, vehicle
+        )
 
     async def get(self, request: web.Request) -> web.Response:
-        """Handle Torque GET requests."""
-        _LOGGER.debug(f"Received GET request: {dict(request.query)}")
-        _LOGGER.debug(f"Raw GET data: {request.query}")
-        return await self._handle_data(request.query)
+        """Handle Torque GET requests.
+
+        Args:
+            request: HTTP request object
+
+        Returns:
+            HTTP response
+        """
+        _LOGGER.debug("Received GET request: %s", dict(request.query))
+        return await self._handle_data(dict(request.query))
 
     async def post(self, request: web.Request) -> web.Response:
-        """Handle Torque POST requests."""
-        data = await request.post()
-        _LOGGER.debug(f"Received POST request: {dict(data)}")
-        _LOGGER.debug(f"Raw POST data: {data}")
-        return await self._handle_data(data)
+        """Handle Torque POST requests.
 
-    async def _handle_data(self, data: dict) -> web.Response:
-        """Common handler for Torque GET/POST requests."""
-        _LOGGER.debug(f"Handling data: {data}")
-        if SENSOR_EMAIL_FIELD not in data:
-            _LOGGER.warning("Missing email field in request")
-            return web.Response(status=400, text="Missing email")
-        if self.email and data[SENSOR_EMAIL_FIELD] != self.email:
-            _LOGGER.warning(f"Ignoring data from unmatched email: {data[SENSOR_EMAIL_FIELD]}")
-            return web.Response(text="Unauthorized email", status=403)
-        names: dict[int, str] = {}
-        units: dict[int, str] = {}
-        for key, value in data.items():
-            if match := NAME_KEY.match(key):
-                pid = convert_pid(match.group(1))
-                if pid is not None:
-                    names[pid] = value
-                    _LOGGER.debug(f"Parsed name: pid={pid}, name={value}")
-                else:
-                    _LOGGER.warning(f"Skipping name for invalid PID: {match.group(1)}")
-            elif match := UNIT_KEY.match(key):
-                pid = convert_pid(match.group(1))
-                if pid is not None:
-                    unit = value.replace("\\xC2\\xB0", DEGREE)
-                    units[pid] = unit
-                    _LOGGER.debug(f"Parsed unit: pid={pid}, unit={unit}")
-                else:
-                    _LOGGER.warning(f"Skipping unit for invalid PID: {match.group(1)}")
-            elif match := VALUE_KEY.match(key):
-                pid = convert_pid(match.group(1))
-                if pid is not None:
-                    _LOGGER.debug(f"Parsed value: pid={pid}, value={value}")
-                    if pid in self.sensors:
-                        try:
-                            self.sensors[pid].async_on_update(value)
-                        except Exception as ex:
-                            _LOGGER.error(f"Error updating sensor for PID {pid}: {ex}")
-                else:
-                    _LOGGER.warning(f"Skipping value for invalid PID: {match.group(1)}")
-        new_entities = []
+        Args:
+            request: HTTP request object
+
+        Returns:
+            HTTP response
+        """
+        try:
+            data = await request.post()
+            _LOGGER.debug("Received POST request: %s", dict(data))
+            return await self._handle_data(dict(data))
+        except Exception as exc:
+            _LOGGER.error("Error processing POST request: %s", exc)
+            return web.Response(status=400, text="Invalid request data")
+
+    async def _handle_data(self, data: dict[str, Any]) -> web.Response:
+        """Common handler for Torque GET/POST requests.
+
+        Args:
+            data: Request data dictionary
+
+        Returns:
+            HTTP response
+        """
+        try:
+            _LOGGER.debug("Processing Torque data: %s", data)
+
+            # Validate email field presence
+            if SENSOR_EMAIL_FIELD not in data:
+                _LOGGER.warning("Missing email field in request")
+                return web.Response(status=400, text="Missing email field")
+
+            # Validate email matches configured email
+            received_email = data[SENSOR_EMAIL_FIELD]
+            if self.email and received_email != self.email:
+                _LOGGER.warning(
+                    "Ignoring data from unmatched email: %s (expected: %s)",
+                    received_email,
+                    self.email,
+                )
+                return web.Response(status=403, text="Unauthorized email")
+
+            # Parse sensor names, units, and values from the data
+            names: dict[int, str] = {}
+            units: dict[int, str] = {}
+
+            for key, value in data.items():
+                self._parse_sensor_data(key, value, names, units)
+
+            # Update existing sensors and create new ones
+            await self._process_sensor_updates(data, names, units)
+
+            return web.Response(text="OK")
+
+        except Exception as exc:
+            _LOGGER.error("Unexpected error handling Torque data: %s", exc)
+            return web.Response(status=500, text="Internal server error")
+
+    def _parse_sensor_data(
+        self, key: str, value: str, names: dict[int, str], units: dict[int, str]
+    ) -> None:
+        """Parse individual sensor data fields.
+
+        Args:
+            key: Data field key
+            value: Data field value
+            names: Dictionary to store parsed names
+            units: Dictionary to store parsed units
+        """
+        # Parse sensor names
+        if match := NAME_KEY.match(key):
+            pid = convert_pid(match.group(1))
+            if pid is not None:
+                names[pid] = value
+                _LOGGER.debug("Parsed name: pid=%d, name=%s", pid, value)
+            else:
+                _LOGGER.warning("Skipping name for invalid PID: %s", match.group(1))
+
+        # Parse sensor units
+        elif match := UNIT_KEY.match(key):
+            pid = convert_pid(match.group(1))
+            if pid is not None:
+                # Convert degree symbol encoding
+                unit = value.replace("\\xC2\\xB0", "°")
+                units[pid] = unit
+                _LOGGER.debug("Parsed unit: pid=%d, unit=%s", pid, unit)
+            else:
+                _LOGGER.warning("Skipping unit for invalid PID: %s", match.group(1))
+
+        # Parse and update sensor values
+        elif match := VALUE_KEY.match(key):
+            pid = convert_pid(match.group(1))
+            if pid is not None:
+                _LOGGER.debug("Parsed value: pid=%d, value=%s", pid, value)
+                if pid in self.sensors:
+                    try:
+                        self.sensors[pid].async_on_update(value)
+                    except Exception as exc:
+                        _LOGGER.error("Error updating sensor for PID %d: %s", pid, exc)
+            else:
+                _LOGGER.warning("Skipping value for invalid PID: %s", match.group(1))
+
+    async def _process_sensor_updates(
+        self, data: dict[str, Any], names: dict[int, str], units: dict[int, str]
+    ) -> None:
+        """Process sensor updates and create new sensors if needed.
+
+        Args:
+            data: Raw request data
+            names: Parsed sensor names by PID
+            units: Parsed sensor units by PID
+        """
+        new_entities: list[TorqueSensor] = []
+
         for pid, name in names.items():
             if pid not in self.sensors:
                 try:
-                    hide_pids = []
-                    rename_map = {}
-                    if self.config_entry and self.config_entry.options.get("hide_pids"):
-                        hide_pids = [int(x.strip()) for x in self.config_entry.options["hide_pids"].split(",") if x.strip().isdigit()]
-                        if pid in hide_pids:
-                            _LOGGER.info(f"PID {pid} is hidden by options, skipping sensor creation.")
-                            continue
-                    if self.config_entry and self.config_entry.options.get("rename_map"):
-                        for pair in self.config_entry.options["rename_map"].split(","):
-                            if ":" in pair:
-                                k, v = pair.split(":", 1)
-                                try:
-                                    rename_map[int(k.strip())] = v.strip()
-                                except Exception:
-                                    pass
-                    sensor_name = rename_map.get(pid, name)
-                    sensor = TorqueSensor(sensor_name, units.get(pid), pid, self.vehicle, self.config_entry.options if self.config_entry else {})
+                    # Check if PID should be hidden
+                    if self._should_hide_pid(pid):
+                        _LOGGER.info(
+                            "PID %d is hidden by options, skipping sensor creation", pid
+                        )
+                        continue
+
+                    # Apply custom sensor name if configured
+                    sensor_name = self._get_custom_sensor_name(pid, name)
+
+                    # Create new sensor
+                    sensor = TorqueSensor(
+                        name=sensor_name,
+                        unit=units.get(pid),
+                        pid=pid,
+                        vehicle=self.vehicle,
+                        options=self.config_entry.options if self.config_entry else {},
+                    )
+
                     self.sensors[pid] = sensor
                     new_entities.append(sensor)
-                    _LOGGER.info(f"Prepared new TorqueSensor: name={sensor_name}, pid={pid}, unit={units.get(pid)}")
-                except Exception as ex:
-                    _LOGGER.error(f"Could not create sensor for PID {pid}: {ex}")
+
+                    _LOGGER.info(
+                        "Created new TorqueSensor: name=%s, pid=%d, unit=%s",
+                        sensor_name,
+                        pid,
+                        units.get(pid),
+                    )
+
+                except Exception as exc:
+                    _LOGGER.error("Could not create sensor for PID %d: %s", pid, exc)
+
+        # Add new entities to Home Assistant
         if new_entities:
-            _LOGGER.info("Adding new Torque sensors: %s", [s.name for s in new_entities])
+            _LOGGER.info(
+                "Adding new Torque sensors: %s",
+                [sensor.name for sensor in new_entities],
+            )
             self.async_add_entities(new_entities)
         else:
-            _LOGGER.debug("No new sensors to add.")
-        return web.Response(text="OK")
+            _LOGGER.debug("No new sensors to add")
+
+    def _should_hide_pid(self, pid: int) -> bool:
+        """Check if a PID should be hidden based on options.
+
+        Args:
+            pid: PID to check
+
+        Returns:
+            True if PID should be hidden
+        """
+        if not self.config_entry or not self.config_entry.options.get("hide_pids"):
+            return False
+
+        try:
+            hide_pids = [
+                int(x.strip())
+                for x in self.config_entry.options["hide_pids"].split(",")
+                if x.strip().isdigit()
+            ]
+            return pid in hide_pids
+        except Exception as exc:
+            _LOGGER.warning("Error parsing hide_pids option: %s", exc)
+            return False
+
+    def _get_custom_sensor_name(self, pid: int, default_name: str) -> str:
+        """Get custom sensor name if configured.
+
+        Args:
+            pid: PID of the sensor
+            default_name: Default name from Torque
+
+        Returns:
+            Custom name if configured, otherwise default name
+        """
+        if not self.config_entry or not self.config_entry.options.get("rename_map"):
+            return default_name
+
+        try:
+            rename_map: dict[int, str] = {}
+            for pair in self.config_entry.options["rename_map"].split(","):
+                if ":" in pair:
+                    key_str, value_str = pair.split(":", 1)
+                    try:
+                        rename_map[int(key_str.strip())] = value_str.strip()
+                    except ValueError:
+                        continue
+
+            return rename_map.get(pid, default_name)
+
+        except Exception as exc:
+            _LOGGER.warning("Error parsing rename_map option: %s", exc)
+            return default_name
 
 
 class TorqueSensor(RestoreSensor, SensorEntity):
-    """Representation of a Torque sensor."""
+    """Representation of a Torque OBD sensor."""
 
-    MIN_UPDATE_INTERVAL = 10  # seconds
-    SIGNIFICANT_CHANGE = 0.01  # Only update if value changes by this much (for floats)
+    # Constants for sensor behavior
+    _attr_has_entity_name = True
+    _attr_should_poll = False
 
-    # List of sensor name keywords that are always metric
-    ALWAYS_METRIC_NAMES = [
-        "speed", "distance", "temp", "temperature", "air temp", "coolant", "intake"
+    # List of sensor name keywords that should use metric units
+    _ALWAYS_METRIC_NAMES = [
+        "speed",
+        "distance",
+        "temp",
+        "temperature",
+        "air temp",
+        "coolant",
+        "intake",
     ]
 
-    METRIC_UNIT_MAP = {
-        # Map keywords to correct metric units
+    # Mapping from name keywords to correct metric units
+    _METRIC_UNIT_MAP = {
         "speed": "km/h",
         "distance": "km",
-        "temp": "°C",
-        "temperature": "°C",
-        "air temp": "°C",
-        "coolant": "°C",
-        "intake": "°C",
+        "temp": UnitOfTemperature.CELSIUS,
+        "temperature": UnitOfTemperature.CELSIUS,
+        "air temp": UnitOfTemperature.CELSIUS,
+        "coolant": UnitOfTemperature.CELSIUS,
+        "intake": UnitOfTemperature.CELSIUS,
     }
 
-    def __init__(self, name: str, unit: str | None, pid: int, vehicle: str, options=None):
+    def __init__(
+        self,
+        name: str,
+        unit: str | None,
+        pid: int,
+        vehicle: str,
+        options: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize the Torque sensor.
+
+        Args:
+            name: Sensor name from Torque app
+            unit: Unit of measurement from Torque app
+            pid: PID identifier
+            vehicle: Vehicle name
+            options: Configuration options
+        """
         self._attr_name = name
         self._pid = pid
         self._vehicle = vehicle
         self._last_update = 0.0
-        self._last_reported_value = None
+        self._last_reported_value: float | None = None
         self._options = options or {}
         self._original_unit = unit
-        self._attr_native_unit_of_measurement = self._get_metric_unit(name)
-        self._attr_device_class = None  # Never guess or set device_class
-        self._attr_state_class = self._guess_state_class(self._attr_native_unit_of_measurement, name)
-        self._attr_icon = self._pick_icon(name, self._attr_native_unit_of_measurement, self._attr_device_class)
-        _LOGGER.debug(f"TorqueSensor initialized: name={name}, unit={unit}, pid={pid}, vehicle={vehicle}, device_class={self._attr_device_class}, state_class={self._attr_state_class}, icon={self._attr_icon}")
-        self._non_numeric_warning_logged: bool = False
+        self._non_numeric_warning_logged = False
 
-    def _get_metric_unit(self, name):
-        n = name.lower() if name else ""
-        for key, metric_unit in self.METRIC_UNIT_MAP.items():
-            if key in n:
+        # Set up sensor properties
+        self._attr_unique_id = f"{DOMAIN}_{vehicle.lower()}_{pid}"
+        self._attr_native_unit_of_measurement = self._determine_unit(name, unit)
+        self._attr_device_class = None  # Don't guess device class to avoid issues
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_icon = self._determine_icon(name)
+
+        _LOGGER.debug(
+            "TorqueSensor initialized: name=%s, pid=%d, unit=%s, unique_id=%s",
+            name,
+            pid,
+            self._attr_native_unit_of_measurement,
+            self._attr_unique_id,
+        )
+
+    def _determine_unit(self, name: str, original_unit: str | None) -> str | None:
+        """Determine the appropriate unit for the sensor.
+
+        Args:
+            name: Sensor name
+            original_unit: Original unit from Torque
+
+        Returns:
+            Appropriate unit string or None
+        """
+        if not name:
+            return original_unit
+
+        name_lower = name.lower()
+        for keyword, metric_unit in self._METRIC_UNIT_MAP.items():
+            if keyword in name_lower:
                 return metric_unit
-        return self._original_unit
+
+        return original_unit
+
+    def _determine_icon(self, name: str) -> str | None:
+        """Determine appropriate icon for the sensor.
+
+        Args:
+            name: Sensor name
+
+        Returns:
+            Icon string or None for default
+        """
+        if not name:
+            return None
+
+        name_lower = name.lower()
+
+        # Temperature related
+        if any(temp in name_lower for temp in ["temp", "temperature"]):
+            if "coolant" in name_lower:
+                return "mdi:coolant-temperature"
+            elif "air" in name_lower or "intake" in name_lower:
+                return "mdi:thermometer"
+            else:
+                return "mdi:thermometer"
+
+        # Speed related
+        elif "speed" in name_lower:
+            return "mdi:speedometer"
+
+        # Engine related
+        elif any(eng in name_lower for eng in ["rpm", "engine"]):
+            return "mdi:engine"
+
+        # Fuel related
+        elif "fuel" in name_lower:
+            return "mdi:gas-station"
+
+        # Voltage/electrical
+        elif any(elec in name_lower for elec in ["volt", "battery"]):
+            return "mdi:car-battery"
+
+        return None
 
     @callback
     def async_on_update(self, value: str) -> None:
+        """Update sensor value from Torque data.
+
+        Args:
+            value: New sensor value as string
+        """
         now = time.monotonic()
+
         try:
             new_value = float(value)
-            self._non_numeric_warning_logged = False  # Reset warning flag on valid value
+            self._non_numeric_warning_logged = False
         except (ValueError, TypeError):
             if not self._non_numeric_warning_logged:
-                _LOGGER.warning(f"Non-numeric value for PID {self._pid}: {value}")
+                _LOGGER.warning("Non-numeric value for PID %d: %s", self._pid, value)
                 self._non_numeric_warning_logged = True
             return
-        should_update = False
-        if self._last_reported_value is None:
-            should_update = True
-        elif isinstance(new_value, float) and isinstance(self._last_reported_value, float):
-            if abs(new_value - self._last_reported_value) > self.SIGNIFICANT_CHANGE:
-                should_update = True
-        elif new_value != self._last_reported_value:
-            should_update = True
-        if should_update and (now - self._last_update) >= self.MIN_UPDATE_INTERVAL:
+
+        # Determine if we should update based on significance and time
+        should_update = self._should_update_value(new_value, now)
+
+        if should_update:
             self._attr_native_value = new_value
             self._last_reported_value = new_value
             self._last_update = now
             self.async_write_ha_state()
-            if _LOGGER.isEnabledFor(logging.DEBUG):
-                _LOGGER.debug(f"TorqueSensor '{self._attr_name}' updated: value={new_value}")
-        # Do not log throttled updates to avoid log spam
 
-    async def async_added_to_hass(self):
-        """Restore state on restart using native_value from RestoreSensor."""
+            _LOGGER.debug(
+                "TorqueSensor '%s' updated: value=%.2f", self._attr_name, new_value
+            )
+
+    def _should_update_value(self, new_value: float, current_time: float) -> bool:
+        """Determine if sensor value should be updated.
+
+        Args:
+            new_value: New sensor value
+            current_time: Current time
+
+        Returns:
+            True if value should be updated
+        """
+        # Always update if we don't have a previous value
+        if self._last_reported_value is None:
+            return True
+
+        # Check minimum update interval
+        if (current_time - self._last_update) < MIN_UPDATE_INTERVAL:
+            return False
+
+        # Check for significant change
+        return abs(new_value - self._last_reported_value) >= SIGNIFICANT_CHANGE
+
+    async def async_added_to_hass(self) -> None:
+        """Restore sensor state when added to Home Assistant."""
         await super().async_added_to_hass()
+
+        # Restore last known state
         last_sensor_data = await self.async_get_last_sensor_data()
-        if last_sensor_data is not None:
-            native_value = last_sensor_data.native_value
-            if native_value not in (None, "unknown", "unavailable", "None"):
-                try:
-                    self._attr_native_value = float(native_value)
-                    _LOGGER.debug(f"Restoring native_value for {self._attr_name}: {native_value}")
-                except (ValueError, TypeError):
+        if last_sensor_data is not None and last_sensor_data.native_value is not None:
+            try:
+                restored_value = float(last_sensor_data.native_value)
+                if str(restored_value).lower() not in {
+                    "none",
+                    "unknown",
+                    "unavailable",
+                }:
+                    self._attr_native_value = restored_value
+                    _LOGGER.debug(
+                        "Restored value for %s: %.2f", self._attr_name, restored_value
+                    )
+                else:
                     self._attr_native_value = None
-                    _LOGGER.debug(f"Not restoring non-numeric native_value for {self._attr_name}: {native_value}")
-            else:
+
+            except (ValueError, TypeError):
                 self._attr_native_value = None
-                _LOGGER.debug(f"Not restoring invalid native_value for {self._attr_name}: {native_value}")
+                _LOGGER.debug(
+                    "Could not restore non-numeric value for %s: %s",
+                    self._attr_name,
+                    last_sensor_data.native_value,
+                )
         else:
-            _LOGGER.debug(f"No previous native_value to restore for {self._attr_name}")
+            _LOGGER.debug("No previous value to restore for %s", self._attr_name)
+
         self.async_write_ha_state()
 
     @property
     def suggested_display_precision(self) -> int:
-        """Suggest the display precision for this sensor."""
+        """Return suggested display precision for this sensor.
+
+        Returns:
+            Number of decimal places to display
+        """
         return 2
 
+    @property
+    def device_info(self) -> dict[str, Any]:
+        """Return device information for this sensor.
+
+        Returns:
+            Device information dictionary
+        """
+        return {
+            "identifiers": {(DOMAIN, self._vehicle)},
+            "name": f"Torque {self._vehicle}",
+            "manufacturer": "Torque Pro",
+            "model": "OBD Vehicle Data",
+        }
+
+    def _pick_icon(
+        self, name: str, unit: str | None, device_class: str | None
+    ) -> str | None:
+        """Legacy method for icon selection - kept for compatibility.
+
+        Args:
+            name: Sensor name
+            unit: Unit of measurement
+            device_class: Device class
+
+        Returns:
+            Icon string or None
+        """
+        return self._determine_icon(name)
+
     def _guess_state_class(self, unit: str | None, name: str | None) -> str | None:
-        """Guess the Home Assistant state class. Default to measurement."""
+        """Legacy method for state class guessing - kept for compatibility.
+
+        Args:
+            unit: Unit of measurement
+            name: Sensor name
+
+        Returns:
+            State class string
+        """
         return SensorStateClass.MEASUREMENT
