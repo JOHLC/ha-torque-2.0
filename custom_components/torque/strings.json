@@ -1,0 +1,51 @@
+{
+  "title": "Torque",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure Torque Integration",
+        "description": "Set up your Torque OBD application integration. The API endpoint will be available at `/api/torque`. Configure your Torque app to send data to this endpoint.",
+        "data": {
+          "email": "Email Address",
+          "name": "Vehicle Name"
+        },
+        "data_description": {
+          "email": "Email address used in your Torque app (used for authentication)",
+          "name": "A friendly name for your vehicle (default: vehicle)"
+        }
+      }
+    },
+    "error": {
+      "invalid_email": "Invalid email address format",
+      "unknown_error": "An unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Torque Integration Options",
+        "description": "Configure advanced options for your Torque integration.",
+        "data": {
+          "hide_pids": "Hide PIDs",
+          "rename_map": "Rename Sensors",
+          "unit_system": "Unit System"
+        },
+        "data_description": {
+          "hide_pids": "Comma-separated list of PID numbers to hide (e.g., 41,42,43)",
+          "rename_map": "Rename sensors using PID:Name format (e.g., 41:Engine Load,42:Coolant Temp)",
+          "unit_system": "Choose between metric and imperial units"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "torque_sensor": {
+        "name": "{sensor_name}"
+      }
+    }
+  }
+}
