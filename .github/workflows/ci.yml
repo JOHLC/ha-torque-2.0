@@ -27,13 +27,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest pytest-asyncio homeassistant voluptuous
 
-    - name: Set PYTHONPATH
-      run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
-
     - name: Run tests
       run: |
         if [ -d "tests" ] && find tests -name "test_*.py" | grep -q .; then
-          pytest tests/ -v
+          PYTHONPATH=$(pwd) pytest tests/ -v
         else
           echo "No tests found, skipping test execution"
         fi
