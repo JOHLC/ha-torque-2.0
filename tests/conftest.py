@@ -1,3 +1,4 @@
+
 """Test fixtures for Torque integration tests."""
 from __future__ import annotations
 
@@ -9,7 +10,6 @@ from homeassistant.const import CONF_EMAIL, CONF_NAME
 from homeassistant.core import HomeAssistant
 
 from custom_components.torque.const import DOMAIN, DEFAULT_NAME
-
 
 @pytest.fixture
 def mock_config_entry():
