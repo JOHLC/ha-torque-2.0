@@ -55,6 +55,17 @@ These instructions ensure high-quality, maintainable, and consistent code for Ho
 
 - Write modular, testable, and async-friendly code.
 - Use type hints for all functions and classes.
+- Implement appropriate data validation and debouncing for noisy sensors.
+- Use sensor-specific update intervals and significance thresholds to avoid database spam.
+- Follow Home Assistant's integration quality guidelines for sensor behavior.
+
+## Sensor Data Quality
+
+- Implement minimum update intervals of at least 15 seconds to avoid overwhelming the recorder.
+- Use sensor-specific significance thresholds (e.g., 1 km/h for speed, 0.5°C for temperature).
+- Add debouncing for unstable sensors that may report brief invalid values (e.g., speed sensors reporting 0 during brief signal loss).
+- Validate sensor data before updating Home Assistant state.
+- Log sensor validation issues appropriately without spamming logs.
 
 ## Testing
 
