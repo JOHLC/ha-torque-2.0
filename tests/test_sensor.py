@@ -130,9 +130,9 @@ class TestTorqueSensor:
         rpm_sensor = TorqueSensor("Engine RPM", "rpm", 12, "Test", {})
         assert rpm_sensor._get_significant_change_threshold() == 50.0
         
-        # Unknown sensor should use default 0.01 threshold
+        # Unknown sensor should use default 0.1 threshold
         unknown_sensor = TorqueSensor("Unknown Sensor", "unit", 99, "Test", {})
-        assert unknown_sensor._get_significant_change_threshold() == 0.01
+        assert unknown_sensor._get_significant_change_threshold() == 0.1
 
     def test_async_on_update_valid_value(self):
         """Test updating sensor with valid numeric value."""

@@ -26,7 +26,7 @@ ENTITY_NAME_FORMAT: Final[str] = "{0} {1}"
 
 # Update intervals and thresholds
 MIN_UPDATE_INTERVAL: Final[int] = 15  # seconds
-SIGNIFICANT_CHANGE: Final[float] = 0.01  # Default for most sensors
+SIGNIFICANT_CHANGE: Final[float] = 0.1  # Default for most sensors
 
 # Sensor-specific significant change thresholds
 SENSOR_SIGNIFICANT_CHANGES: Final[dict[str, float]] = {
