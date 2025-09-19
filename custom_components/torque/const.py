@@ -25,5 +25,15 @@ SENSOR_VALUE_KEY: Final[str] = r"k(\w+)"
 ENTITY_NAME_FORMAT: Final[str] = "{0} {1}"
 
 # Update intervals and thresholds
-MIN_UPDATE_INTERVAL: Final[int] = 10  # seconds
-SIGNIFICANT_CHANGE: Final[float] = 0.01  # Only update if value changes by this much
+MIN_UPDATE_INTERVAL: Final[int] = 15  # seconds
+SIGNIFICANT_CHANGE: Final[float] = 0.01  # Default for most sensors
+
+# Sensor-specific significant change thresholds
+SENSOR_SIGNIFICANT_CHANGES: Final[dict[str, float]] = {
+    "speed": 1.0,  # 1 km/h change for speed sensors
+    "temperature": 0.5,  # 0.5°C change for temperature sensors
+    "temp": 0.5,  # Alternative temperature naming
+    "rpm": 50.0,  # 50 RPM change for engine RPM
+    "voltage": 0.1,  # 0.1V change for voltage sensors
+    "pressure": 1.0,  # 1 unit change for pressure sensors
+}

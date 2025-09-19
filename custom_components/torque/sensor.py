@@ -32,6 +32,7 @@ from .const import (
     MIN_UPDATE_INTERVAL,
     SENSOR_EMAIL_FIELD,
     SENSOR_NAME_KEY,
+    SENSOR_SIGNIFICANT_CHANGES,
     SENSOR_UNIT_KEY,
     SENSOR_VALUE_KEY,
     SIGNIFICANT_CHANGE,
@@ -454,6 +455,13 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         self._original_unit = unit
         self._non_numeric_warning_logged = False
 
+        # Data validation and debouncing attributes
+        self._consecutive_zero_count = 0
+        self._max_consecutive_zeros = (
+            3  # Ignore up to 3 consecutive zeros for speed sensors
+        )
+        self._last_valid_non_zero_value: float | None = None
+
         # Set up sensor properties
         self._attr_unique_id = f"{DOMAIN}_{vehicle.lower()}_{pid}"
         self._attr_native_unit_of_measurement = self._determine_unit(name, unit)
@@ -530,6 +538,24 @@ class TorqueSensor(RestoreSensor, SensorEntity):
 
         return None
 
+    def _get_significant_change_threshold(self) -> float:
+        """Get the significant change threshold for this sensor.
+
+        Returns:
+            Threshold value for significant changes
+        """
+        if not self._attr_name:
+            return SIGNIFICANT_CHANGE
+
+        name_lower = self._attr_name.lower()
+
+        # Check for sensor-specific thresholds
+        for keyword, threshold in SENSOR_SIGNIFICANT_CHANGES.items():
+            if keyword in name_lower:
+                return threshold
+
+        return SIGNIFICANT_CHANGE
+
     @callback
     def async_on_update(self, value: str) -> None:
         """Update sensor value from Torque data.
@@ -548,6 +574,10 @@ class TorqueSensor(RestoreSensor, SensorEntity):
                 self._non_numeric_warning_logged = True
             return
 
+        # Apply sensor-specific data validation and debouncing
+        if not self._is_value_valid(new_value):
+            return
+
         # Determine if we should update based on significance and time
         should_update = self._should_update_value(new_value, now)
 
@@ -560,6 +590,39 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             _LOGGER.debug(
                 "TorqueSensor '%s' updated: value=%.2f", self._attr_name, new_value
             )
+
+    def _is_value_valid(self, new_value: float) -> bool:
+        """Validate sensor value and implement debouncing for noisy sensors.
+
+        Args:
+            new_value: New sensor value to validate
+
+        Returns:
+            True if value is valid and should be processed
+        """
+        # Special handling for speed sensors to avoid 0-speed bouncing
+        if self._attr_name and "speed" in self._attr_name.lower():
+            if new_value == 0.0:
+                self._consecutive_zero_count += 1
+                # If we've seen too many consecutive zeros, and we had a valid non-zero value,
+                # this might be noise - ignore until we see consistent behavior
+                if (
+                    self._consecutive_zero_count <= self._max_consecutive_zeros
+                    and self._last_valid_non_zero_value is not None
+                ):
+                    _LOGGER.debug(
+                        "Speed sensor '%s': Ignoring zero value %d/%d (possible noise)",
+                        self._attr_name,
+                        self._consecutive_zero_count,
+                        self._max_consecutive_zeros,
+                    )
+                    return False
+            else:
+                # Reset zero count and store non-zero value
+                self._consecutive_zero_count = 0
+                self._last_valid_non_zero_value = new_value
+
+        return True
 
     def _should_update_value(self, new_value: float, current_time: float) -> bool:
         """Determine if sensor value should be updated.
@@ -579,8 +642,9 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         if (current_time - self._last_update) < MIN_UPDATE_INTERVAL:
             return False
 
-        # Check for significant change
-        return abs(new_value - self._last_reported_value) >= SIGNIFICANT_CHANGE
+        # Check for significant change using sensor-specific threshold
+        threshold = self._get_significant_change_threshold()
+        return abs(new_value - self._last_reported_value) >= threshold
 
     async def async_added_to_hass(self) -> None:
         """Restore sensor state when added to Home Assistant."""

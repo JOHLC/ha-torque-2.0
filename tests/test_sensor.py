@@ -75,19 +75,66 @@ class TestTorqueSensor:
         sensor = TorqueSensor("Test", "unit", 1, "Test", {})
         assert sensor._should_update_value(50.0, 0.0) is True
 
-    def test_should_update_value_significant_change(self):
-        """Test update on significant value change."""
-        sensor = TorqueSensor("Test", "unit", 1, "Test", {})
-        sensor._last_reported_value = 50.0
-        sensor._last_update = 0.0
+    def test_should_update_value_sensor_specific_thresholds(self):
+        """Test update thresholds are sensor-specific."""
+        # Speed sensor should use 1.0 threshold
+        speed_sensor = TorqueSensor("Vehicle Speed", "km/h", 13, "Test", {})
+        speed_sensor._last_reported_value = 50.0
+        speed_sensor._last_update = 0.0
         
-        # Significant change should trigger update
-        assert sensor._should_update_value(51.0, 20.0) is True
+        # Small change under 1.0 km/h should not trigger update
+        assert speed_sensor._should_update_value(50.5, 20.0) is False
+        # Large change over 1.0 km/h should trigger update
+        assert speed_sensor._should_update_value(51.5, 20.0) is True
         
-        # Small change should not trigger update
-        assert sensor._should_update_value(50.005, 20.0) is False
+        # Temperature sensor should use 0.5 threshold
+        temp_sensor = TorqueSensor("Coolant Temperature", "°C", 5, "Test", {})
+        temp_sensor._last_reported_value = 80.0
+        temp_sensor._last_update = 0.0
+        
+        # Small change under 0.5°C should not trigger update
+        assert temp_sensor._should_update_value(80.2, 20.0) is False
+        # Large change over 0.5°C should trigger update  
+        assert temp_sensor._should_update_value(80.7, 20.0) is True
 
-    async def test_async_on_update_valid_value(self):
+    def test_speed_sensor_zero_debouncing(self):
+        """Test speed sensors ignore brief zero values."""
+        sensor = TorqueSensor("Vehicle Speed", "km/h", 13, "Test", {})
+        sensor._last_valid_non_zero_value = 50.0
+        
+        # First few zero values should be rejected
+        assert sensor._is_value_valid(0.0) is False  # 1st zero
+        assert sensor._is_value_valid(0.0) is False  # 2nd zero
+        assert sensor._is_value_valid(0.0) is False  # 3rd zero
+        # 4th zero should be accepted (persistent zero, likely real stop)
+        assert sensor._is_value_valid(0.0) is True
+        
+    def test_non_speed_sensor_accepts_zeros(self):
+        """Test non-speed sensors accept zero values immediately."""
+        sensor = TorqueSensor("Engine Load", "%", 4, "Test", {})
+        
+        # Zero values should be accepted for non-speed sensors
+        assert sensor._is_value_valid(0.0) is True
+
+    def test_get_significant_change_threshold(self):
+        """Test sensor-specific significant change thresholds."""
+        # Speed sensor should use 1.0 threshold
+        speed_sensor = TorqueSensor("Vehicle Speed", "km/h", 13, "Test", {})
+        assert speed_sensor._get_significant_change_threshold() == 1.0
+        
+        # Temperature sensor should use 0.5 threshold
+        temp_sensor = TorqueSensor("Coolant Temperature", "°C", 5, "Test", {})
+        assert temp_sensor._get_significant_change_threshold() == 0.5
+        
+        # RPM sensor should use 50.0 threshold
+        rpm_sensor = TorqueSensor("Engine RPM", "rpm", 12, "Test", {})
+        assert rpm_sensor._get_significant_change_threshold() == 50.0
+        
+        # Unknown sensor should use default 0.01 threshold
+        unknown_sensor = TorqueSensor("Unknown Sensor", "unit", 99, "Test", {})
+        assert unknown_sensor._get_significant_change_threshold() == 0.01
+
+    def test_async_on_update_valid_value(self):
         """Test updating sensor with valid numeric value."""
         sensor = TorqueSensor("Test", "unit", 1, "Test", {})
         sensor.async_write_ha_state = Mock()
