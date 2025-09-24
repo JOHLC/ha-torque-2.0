@@ -1,14 +1,10 @@
 """Test the Torque config flow."""
 from __future__ import annotations
 
-from unittest.mock import patch
-import pytest
-
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
-from custom_components.torque.config_flow import TorqueConfigFlow
 from custom_components.torque.const import CONF_EMAIL, CONF_NAME, DEFAULT_NAME, DOMAIN
 
 

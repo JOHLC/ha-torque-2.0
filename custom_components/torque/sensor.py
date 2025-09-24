@@ -16,7 +16,6 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity_registry import (
@@ -407,27 +406,7 @@ class TorqueSensor(RestoreSensor, SensorEntity):
     _attr_has_entity_name = True
     _attr_should_poll = False
 
-    # List of sensor name keywords that should use metric units
-    _ALWAYS_METRIC_NAMES = [
-        "speed",
-        "distance",
-        "temp",
-        "temperature",
-        "air temp",
-        "coolant",
-        "intake",
-    ]
 
-    # Mapping from name keywords to correct metric units
-    _METRIC_UNIT_MAP = {
-        "speed": "km/h",
-        "distance": "km",
-        "temp": UnitOfTemperature.CELSIUS,
-        "temperature": UnitOfTemperature.CELSIUS,
-        "air temp": UnitOfTemperature.CELSIUS,
-        "coolant": UnitOfTemperature.CELSIUS,
-        "intake": UnitOfTemperature.CELSIUS,
-    }
 
     def __init__(
         self,
@@ -455,16 +434,12 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         self._original_unit = unit
         self._non_numeric_warning_logged = False
 
-        # Data validation and debouncing attributes
-        self._consecutive_zero_count = 0
-        self._max_consecutive_zeros = (
-            3  # Ignore up to 3 consecutive zeros for speed sensors
-        )
-        self._last_valid_non_zero_value: float | None = None
+        # Data validation attributes
+        self._non_numeric_warning_logged = False
 
         # Set up sensor properties
         self._attr_unique_id = f"{DOMAIN}_{vehicle.lower()}_{pid}"
-        self._attr_native_unit_of_measurement = self._determine_unit(name, unit)
+        self._attr_native_unit_of_measurement = unit  # Use raw unit from Torque
         self._attr_device_class = None  # Don't guess device class to avoid issues
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = self._determine_icon(name)
@@ -477,25 +452,7 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             self._attr_unique_id,
         )
 
-    def _determine_unit(self, name: str, original_unit: str | None) -> str | None:
-        """Determine the appropriate unit for the sensor.
 
-        Args:
-            name: Sensor name
-            original_unit: Original unit from Torque
-
-        Returns:
-            Appropriate unit string or None
-        """
-        if not name:
-            return original_unit
-
-        name_lower = name.lower()
-        for keyword, metric_unit in self._METRIC_UNIT_MAP.items():
-            if keyword in name_lower:
-                return metric_unit
-
-        return original_unit
 
     def _determine_icon(self, name: str) -> str | None:
         """Determine appropriate icon for the sensor.
@@ -558,10 +515,10 @@ class TorqueSensor(RestoreSensor, SensorEntity):
 
     @callback
     def async_on_update(self, value: str) -> None:
-        """Update sensor value from Torque data.
+        """Update sensor value from Torque data with minimal processing.
 
         Args:
-            value: New sensor value as string
+            value: New sensor value as string from Torque (raw value)
         """
         now = time.monotonic()
 
@@ -574,7 +531,7 @@ class TorqueSensor(RestoreSensor, SensorEntity):
                 self._non_numeric_warning_logged = True
             return
 
-        # Apply sensor-specific data validation and debouncing
+        # Apply minimal validation - accept all valid numeric values
         if not self._is_value_valid(new_value):
             return
 
@@ -592,7 +549,7 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             )
 
     def _is_value_valid(self, new_value: float) -> bool:
-        """Validate sensor value and implement debouncing for noisy sensors.
+        """Validate sensor value with minimal filtering.
 
         Args:
             new_value: New sensor value to validate
@@ -600,28 +557,8 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         Returns:
             True if value is valid and should be processed
         """
-        # Special handling for speed sensors to avoid 0-speed bouncing
-        if self._attr_name and "speed" in self._attr_name.lower():
-            if new_value == 0.0:
-                self._consecutive_zero_count += 1
-                # If we've seen too many consecutive zeros, and we had a valid non-zero value,
-                # this might be noise - ignore until we see consistent behavior
-                if (
-                    self._consecutive_zero_count <= self._max_consecutive_zeros
-                    and self._last_valid_non_zero_value is not None
-                ):
-                    _LOGGER.debug(
-                        "Speed sensor '%s': Ignoring zero value %d/%d (possible noise)",
-                        self._attr_name,
-                        self._consecutive_zero_count,
-                        self._max_consecutive_zeros,
-                    )
-                    return False
-            else:
-                # Reset zero count and store non-zero value
-                self._consecutive_zero_count = 0
-                self._last_valid_non_zero_value = new_value
-
+        # Accept all numeric values - let Home Assistant handle any unit conversion
+        # and let users see the raw data from Torque
         return True
 
     def _should_update_value(self, new_value: float, current_time: float) -> bool:

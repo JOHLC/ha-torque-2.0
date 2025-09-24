@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, Mock
-import pytest
 
+import pytest
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_NAME
 from homeassistant.core import HomeAssistant
 
-from custom_components.torque.const import DOMAIN, DEFAULT_NAME
+from custom_components.torque.const import DOMAIN
+
 
 @pytest.fixture
 def mock_config_entry():

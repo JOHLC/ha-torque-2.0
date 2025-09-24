@@ -2,18 +2,16 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
 
-from aiohttp import web
-from homeassistant.core import HomeAssistant
-
+from custom_components.torque.const import DOMAIN
 from custom_components.torque.sensor import (
     TorqueReceiveDataView,
     TorqueSensor,
     async_setup_entry,
     convert_pid,
 )
-from custom_components.torque.const import DOMAIN
 
 
 class TestConvertPid:
@@ -44,21 +42,23 @@ class TestTorqueSensor:
             vehicle="Test Car",
             options={}
         )
-        
+
         assert sensor.name == "Engine RPM"
         assert sensor._pid == 12
         assert sensor._vehicle == "Test Car"
         assert sensor.unique_id == f"{DOMAIN}_test car_12"
 
     def test_determine_unit_temperature(self):
-        """Test unit determination for temperature sensors."""
+        """Test unit determination uses raw unit from Torque."""
         sensor = TorqueSensor("Coolant Temp", "°F", 5, "Test", {})
-        assert sensor._attr_native_unit_of_measurement == "°C"
+        # Should use raw unit from Torque, not convert to Celsius
+        assert sensor._attr_native_unit_of_measurement == "°F"
 
     def test_determine_unit_speed(self):
-        """Test unit determination for speed sensors."""
+        """Test unit determination uses raw unit from Torque."""
         sensor = TorqueSensor("Vehicle Speed", "mph", 13, "Test", {})
-        assert sensor._attr_native_unit_of_measurement == "km/h"
+        # Should use raw unit from Torque, not convert to km/h
+        assert sensor._attr_native_unit_of_measurement == "mph"
 
     def test_determine_icon_temperature(self):
         """Test icon determination for temperature sensors."""
@@ -81,38 +81,35 @@ class TestTorqueSensor:
         speed_sensor = TorqueSensor("Vehicle Speed", "km/h", 13, "Test", {})
         speed_sensor._last_reported_value = 50.0
         speed_sensor._last_update = 0.0
-        
+
         # Small change under 1.0 km/h should not trigger update
         assert speed_sensor._should_update_value(50.5, 20.0) is False
         # Large change over 1.0 km/h should trigger update
         assert speed_sensor._should_update_value(51.5, 20.0) is True
-        
+
         # Temperature sensor should use 0.5 threshold
         temp_sensor = TorqueSensor("Coolant Temperature", "°C", 5, "Test", {})
         temp_sensor._last_reported_value = 80.0
         temp_sensor._last_update = 0.0
-        
+
         # Small change under 0.5°C should not trigger update
         assert temp_sensor._should_update_value(80.2, 20.0) is False
-        # Large change over 0.5°C should trigger update  
+        # Large change over 0.5°C should trigger update
         assert temp_sensor._should_update_value(80.7, 20.0) is True
 
-    def test_speed_sensor_zero_debouncing(self):
-        """Test speed sensors ignore brief zero values."""
+    def test_speed_sensor_accepts_all_values(self):
+        """Test speed sensors now accept all values including zeros."""
         sensor = TorqueSensor("Vehicle Speed", "km/h", 13, "Test", {})
-        sensor._last_valid_non_zero_value = 50.0
-        
-        # First few zero values should be rejected
-        assert sensor._is_value_valid(0.0) is False  # 1st zero
-        assert sensor._is_value_valid(0.0) is False  # 2nd zero
-        assert sensor._is_value_valid(0.0) is False  # 3rd zero
-        # 4th zero should be accepted (persistent zero, likely real stop)
-        assert sensor._is_value_valid(0.0) is True
-        
+
+        # All values should be accepted now - no debouncing
+        assert sensor._is_value_valid(0.0) is True  # Zero values accepted
+        assert sensor._is_value_valid(50.0) is True # Non-zero values accepted
+        assert sensor._is_value_valid(0.0) is True  # Still accepts zeros
+
     def test_non_speed_sensor_accepts_zeros(self):
         """Test non-speed sensors accept zero values immediately."""
         sensor = TorqueSensor("Engine Load", "%", 4, "Test", {})
-        
+
         # Zero values should be accepted for non-speed sensors
         assert sensor._is_value_valid(0.0) is True
 
@@ -121,15 +118,15 @@ class TestTorqueSensor:
         # Speed sensor should use 1.0 threshold
         speed_sensor = TorqueSensor("Vehicle Speed", "km/h", 13, "Test", {})
         assert speed_sensor._get_significant_change_threshold() == 1.0
-        
+
         # Temperature sensor should use 0.5 threshold
         temp_sensor = TorqueSensor("Coolant Temperature", "°C", 5, "Test", {})
         assert temp_sensor._get_significant_change_threshold() == 0.5
-        
+
         # RPM sensor should use 50.0 threshold
         rpm_sensor = TorqueSensor("Engine RPM", "rpm", 12, "Test", {})
         assert rpm_sensor._get_significant_change_threshold() == 50.0
-        
+
         # Unknown sensor should use default 0.1 threshold
         unknown_sensor = TorqueSensor("Unknown Sensor", "unit", 99, "Test", {})
         assert unknown_sensor._get_significant_change_threshold() == 0.1
@@ -138,9 +135,9 @@ class TestTorqueSensor:
         """Test updating sensor with valid numeric value."""
         sensor = TorqueSensor("Test", "unit", 1, "Test", {})
         sensor.async_write_ha_state = Mock()
-        
+
         sensor.async_on_update("42.5")
-        
+
         assert sensor._attr_native_value == 42.5
         assert sensor._last_reported_value == 42.5
 
@@ -148,9 +145,9 @@ class TestTorqueSensor:
         """Test updating sensor with invalid value."""
         sensor = TorqueSensor("Test", "unit", 1, "Test", {})
         sensor.async_write_ha_state = Mock()
-        
+
         sensor.async_on_update("invalid")
-        
+
         assert sensor._attr_native_value is None
         assert sensor._last_reported_value is None
 
@@ -180,7 +177,7 @@ class TestTorqueReceiveDataView:
             "userUnit29": "%",
             "k29": "45.5",
         }
-        
+
         response = await view.get(request)
         assert response.text == "OK"
         assert response.status == 200
@@ -202,7 +199,7 @@ class TestTorqueReceiveDataView:
             ("k29", "45.5"),
         ])
         request.post = AsyncMock(return_value=post_data)
-        
+
         response = await view.post(request)
         assert response.text == "OK"
         assert response.status == 200
@@ -211,7 +208,7 @@ class TestTorqueReceiveDataView:
         """Test handling data without email field."""
         data = {"userFullName29": "Engine Load"}
         response = await view._handle_data(data)
-        
+
         assert response.status == 400
         assert "Missing email" in response.text
 
@@ -222,7 +219,7 @@ class TestTorqueReceiveDataView:
             "userFullName29": "Engine Load",
         }
         response = await view._handle_data(data)
-        
+
         assert response.status == 403
         assert "Unauthorized email" in response.text
 
@@ -230,10 +227,10 @@ class TestTorqueReceiveDataView:
         """Test parsing sensor data fields."""
         names = {}
         units = {}
-        
+
         view._parse_sensor_data("userFullName29", "Engine Load", names, units)
         view._parse_sensor_data("userUnit29", "%", names, units)
-        
+
         assert names[41] == "Engine Load"
         assert units[41] == "%"
 
@@ -245,7 +242,7 @@ class TestTorqueReceiveDataView:
         """Test PID hiding with configuration."""
         config_entry = Mock()
         config_entry.options = {"hide_pids": "41,42,43"}
-        
+
         view = TorqueReceiveDataView(
             email="test@example.com",
             vehicle="Test Car",
@@ -253,7 +250,7 @@ class TestTorqueReceiveDataView:
             async_add_entities=AsyncMock(),
             config_entry=config_entry,
         )
-        
+
         assert view._should_hide_pid(41) is True
         assert view._should_hide_pid(40) is False
 
@@ -266,7 +263,7 @@ class TestTorqueReceiveDataView:
         """Test getting sensor name with custom configuration."""
         config_entry = Mock()
         config_entry.options = {"rename_map": "41:Custom Engine Load,42:Custom Temp"}
-        
+
         view = TorqueReceiveDataView(
             email="test@example.com",
             vehicle="Test Car",
@@ -274,7 +271,7 @@ class TestTorqueReceiveDataView:
             async_add_entities=AsyncMock(),
             config_entry=config_entry,
         )
-        
+
         assert view._get_custom_sensor_name(41, "Engine Load") == "Custom Engine Load"
         assert view._get_custom_sensor_name(43, "Other Sensor") == "Other Sensor"
 
@@ -285,8 +282,8 @@ async def test_async_setup_entry(hass, mock_config_entry, mock_add_entities):
         "custom_components.torque.sensor.async_get_entity_registry"
     ) as mock_registry:
         mock_registry.return_value.entities = {}
-        
+
         await async_setup_entry(hass, mock_config_entry, mock_add_entities)
-        
+
         # Verify HTTP view is registered
         assert hass.http.register_view.called
