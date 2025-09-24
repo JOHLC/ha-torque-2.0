@@ -262,21 +262,35 @@ class TorqueSensor(RestoreSensor, SensorEntity):
                 _LOGGER.warning(f"Non-numeric value for PID {self._pid}: {value}")
                 self._non_numeric_warning_logged = True
             return
+        
+        # Determine if we should update
         should_update = False
+        is_significant_change = False
+        
         if self._last_reported_value is None:
+            # First value always updates immediately
             should_update = True
         elif isinstance(new_value, float) and isinstance(self._last_reported_value, float):
             if abs(new_value - self._last_reported_value) > self.SIGNIFICANT_CHANGE:
                 should_update = True
+                is_significant_change = True
         elif new_value != self._last_reported_value:
             should_update = True
-        if should_update and (now - self._last_update) >= self.MIN_UPDATE_INTERVAL:
-            self._attr_native_value = new_value
-            self._last_reported_value = new_value
-            self._last_update = now
-            self.async_write_ha_state()
-            if _LOGGER.isEnabledFor(logging.DEBUG):
-                _LOGGER.debug(f"TorqueSensor '{self._attr_name}' updated: value={new_value}")
+            is_significant_change = True
+        
+        # Apply throttling logic: allow immediate updates for first value or significant changes,
+        # but throttle minor updates to prevent spam
+        time_since_last_update = now - self._last_update
+        if should_update:
+            if (self._last_reported_value is None or 
+                is_significant_change or 
+                time_since_last_update >= self.MIN_UPDATE_INTERVAL):
+                self._attr_native_value = new_value
+                self._last_reported_value = new_value
+                self._last_update = now
+                self.async_write_ha_state()
+                if _LOGGER.isEnabledFor(logging.DEBUG):
+                    _LOGGER.debug(f"TorqueSensor '{self._attr_name}' updated: value={new_value}")
         # Do not log throttled updates to avoid log spam
 
     async def async_added_to_hass(self):
