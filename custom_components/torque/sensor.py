@@ -19,7 +19,7 @@ from homeassistant.components.sensor import ( # type: ignore
     SensorDeviceClass,
     SensorStateClass,
 )
-from .const import CONF_EMAIL, CONF_NAME, DOMAIN, DEFAULT_NAME
+from .const import CONF_EMAIL, CONF_NAME, DOMAIN, DEFAULT_NAME, API_PATH
 from homeassistant.const import DEGREE # type: ignore
 from homeassistant.core import HomeAssistant, callback # type: ignore
 from homeassistant.helpers import config_validation as cv # type: ignore
@@ -32,9 +32,6 @@ except ImportError:
 
 _LOGGER = logging.getLogger(__name__)
 
-API_PATH = "/api/torque"
-DEFAULT_NAME = "Torque"
-DOMAIN = "torque"
 ENTITY_NAME_FORMAT = "{0} {1}"
 
 SENSOR_EMAIL_FIELD = "eml"
