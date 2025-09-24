@@ -15,7 +15,7 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 > This integration is maintained and improved with the help of GitHub Copilot among various other AI assistants.<br>
 > I am not a Python coder by any means. Community feedback, contributions, and code reviews are welcome!
 
-## 🆕 What's New in v1.0.2
+## 🆕 What's New
 
 - **Unit Handling Simplified:**
   - All manual unit conversion logic has been removed. The integration now assumes all values received from the Torque app are metric, as per the app's behavior.
