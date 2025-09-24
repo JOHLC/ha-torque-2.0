@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Torque OBD Configuration",
+        "description": "Set up the Torque OBD integration. The email must match what you configure in the Torque app.",
+        "data": {
+          "email": "Email address",
+          "name": "Vehicle name"
+        },
+        "data_description": {
+          "email": "Email address to match with Torque app (can be any email, doesn't need to be real)",
+          "name": "A friendly name for this vehicle (e.g., '2023 Ford EcoSport')"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Email address is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Torque Options",
+        "description": "Configure options for the Torque integration.",
+        "data": {
+          "hide_pids": "PIDs to hide (comma-separated)",
+          "rename_map": "Rename sensors (format: pid:new_name,pid:new_name)",
+          "unit_system": "Unit system preference"
+        },
+        "data_description": {
+          "hide_pids": "List of PID numbers to hide from Home Assistant (e.g., '12,34,56')",
+          "rename_map": "Rename sensors by PID (e.g., '12:Engine RPM,34:Speed')",
+          "unit_system": "Preferred unit system (metric is recommended)"
+        }
+      }
+    }
+  }
+}

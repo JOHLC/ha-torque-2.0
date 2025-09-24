@@ -1,6 +1,7 @@
 import voluptuous as vol # type: ignore
 from homeassistant import config_entries # type: ignore
 from homeassistant.helpers import config_validation as cv # type: ignore
+from homeassistant.core import callback # type: ignore
 from .const import DOMAIN, DEFAULT_NAME, CONF_EMAIL, CONF_NAME
 
 class TorqueConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -15,6 +16,7 @@ class TorqueConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(
                 title=title,
                 data=user_input,
+                options={},
             )
 
         data_schema = vol.Schema({
@@ -23,3 +25,10 @@ class TorqueConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         })
 
         return self.async_show_form(step_id="user", data_schema=data_schema, errors=errors)
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        """Get the options flow for this handler."""
+        from .options_flow import TorqueOptionsFlowHandler
+        return TorqueOptionsFlowHandler(config_entry)

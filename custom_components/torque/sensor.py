@@ -307,3 +307,46 @@ class TorqueSensor(RestoreSensor, SensorEntity):
     def _guess_state_class(self, unit: str | None, name: str | None) -> str | None:
         """Guess the Home Assistant state class. Default to measurement."""
         return SensorStateClass.MEASUREMENT
+
+    def _pick_icon(self, name: str | None, unit: str | None, device_class: str | None) -> str | None:
+        """Pick an appropriate icon based on the sensor name and unit."""
+        if not name:
+            return None
+        
+        name_lower = name.lower()
+        
+        # Speed-related sensors
+        if any(keyword in name_lower for keyword in ["speed", "velocity", "mph", "km/h", "kph"]):
+            return "mdi:speedometer"
+            
+        # Fuel-related sensors
+        if any(keyword in name_lower for keyword in ["fuel", "gas", "petrol", "diesel", "consumption", "mpg", "l/100km"]):
+            return "mdi:gas-station"
+            
+        # Temperature sensors
+        if any(keyword in name_lower for keyword in ["temp", "temperature", "coolant", "intake", "exhaust"]):
+            return "mdi:thermometer"
+            
+        # Engine-related sensors
+        if any(keyword in name_lower for keyword in ["rpm", "engine", "throttle"]):
+            return "mdi:engine"
+            
+        # Pressure sensors
+        if any(keyword in name_lower for keyword in ["pressure", "psi", "bar", "kpa"]):
+            return "mdi:gauge"
+            
+        # Voltage/electrical sensors
+        if any(keyword in name_lower for keyword in ["volt", "voltage", "battery", "current", "amp"]):
+            return "mdi:car-battery"
+            
+        # Distance sensors
+        if any(keyword in name_lower for keyword in ["distance", "trip", "odometer", "miles", "km"]):
+            return "mdi:road"
+            
+        # Default car-related icon
+        return "mdi:car-info"
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID for this sensor."""
+        return f"{DOMAIN}_{self._vehicle.lower().replace(' ', '_')}_{self._pid}"

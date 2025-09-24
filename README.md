@@ -1,7 +1,6 @@
 # 🚗 **Torque OBD Custom Integration for Home Assistant**
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/home-assistant/brands/refs/heads/master/custom_integrations/torque_logger/icon%402x.png" alt="Torque OBD Logo" width="125" />
   <img src="https://brands.home-assistant.io/_/torque/logo@2x.png" alt="Torque OBD Logo" width="300" />
 </p>
 
@@ -36,8 +35,6 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 - 🚙 **Automatic sensor discovery:** New sensors appear as new PIDs are received from Torque.
 - 🏷️ **State Class Only:** Sensors are assigned `state_class` for better statistics. No `device_class` is set or guessed. The unit of measurement is always treated as metric, regardless of what Torque reports.
 - ⚖️ **Native Metric Handling:** All values from Torque are always treated as metric. Home Assistant handles any user-selected unit conversion in the UI.
-
-**Untested features:**
 
 - 🛠️ **Options Flow for Customization:** Easily hide or rename sensors (by PID) from the Home Assistant UI—no YAML or file editing required.
 - 🛡️ **Error Handling:** Malformed or unexpected data is safely ignored and logged for troubleshooting.
@@ -95,7 +92,7 @@ You can install this integration via [HACS](https://hacs.xyz/) as a custom repos
    > See the [Home Assistant documentation on securing your installation](https://www.home-assistant.io/docs/configuration/securing/) for setup instructions.
 
 You should now be all set to start logging data to Home Assistant!
-Sensors will be created once Home Assistant recieves valid data from Torque.
+Sensors will be created once Home Assistant receives valid data from Torque.
 
 ---
 
