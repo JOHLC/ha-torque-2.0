@@ -1,33 +1,30 @@
 # Tests
 
-This directory contains test configuration for the Torque integration.
 
-## Setup
+This directory contains comprehensive tests for the Torque integration.
 
-The tests require proper PYTHONPATH configuration to import custom_components. This is handled automatically in the CI workflow.
+## Running Tests
 
-## Running Tests Locally
-
-To run tests locally, set the PYTHONPATH to the repository root:
-
+To run all tests:
 ```bash
-PYTHONPATH=. pytest tests/ -v
+pytest tests/
 ```
 
-## Test Infrastructure
-
-- `conftest.py` - Test configuration and fixtures
-- Test files should follow the pattern `test_*.py`
-
-## Adding Tests
-
-When adding tests for the integration, you can use the fixtures provided in `conftest.py` such as:
-
-- `mock_hass` - Mock Home Assistant instance
-- `mock_config_entry` - Mock configuration entry
-
-You can import constants and modules from the custom component using:
-
-```python
-from custom_components.torque.const import DOMAIN, DEFAULT_NAME
+To run tests with coverage:
+```bash
+pytest tests/ --cov=custom_components.torque --cov-report=html
 ```
+
+## Test Structure
+
+- `conftest.py` - Test fixtures and configuration
+- `test_config_flow.py` - Tests for configuration flow
+- `test_sensor.py` - Tests for sensor functionality
+- `test_init.py` - Tests for integration setup/teardown
+
+## Requirements
+
+The tests require the following packages:
+- pytest
+- pytest-homeassistant-custom-component
+- pytest-cov (for coverage reporting)
