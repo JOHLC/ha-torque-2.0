@@ -74,6 +74,15 @@ You can install this integration via [HACS](https://hacs.xyz/) as a custom repos
    - Example: 2023 Ford EcoSport
 4. Click submit then click finish
 
+### ⚙️ **Customization Options (Optional)**
+
+After setup, you can customize the integration:
+
+1. Go to **Settings > Devices & Services > Torque > Configure**.
+2. **Hide PIDs**: Enter comma-separated PID numbers to hide sensors you don't want (e.g., `12,34,56`).
+3. **Rename Sensors**: Enter comma-separated pairs to rename sensors by PID (e.g., `12:Engine Temp,34:Speed`).
+4. Click submit to apply changes.
+
 ---
 
 ### 📱 **Torque App Setup**
@@ -85,14 +94,21 @@ You can install this integration via [HACS](https://hacs.xyz/) as a custom repos
 3. Under **Logging Preferences**:
    - Tap **Select what to log**.
    - Use the menu to **Add PID to log** and select items of interest.
-4. Under **Realtime web upload**: - Set the webserver URL to your Home Assistant instance: `https://homeassistant.yourdomain.com/api/torque` - Enable 'Send Https: Bearer Token' - Set 'Bearer Token' to the long-lived access code you generated in the previous steps. - Set your email address to match the one used in the integration setup. - Set the 'Logging Interval' to something higher than 10-20 seconds. Anything lower may overload the system. - Optional: Enable 'Only when OBD connected. This will ensure Torque is only sending data when it is actually connected to your vehicle. - Enable web uploads
+4. Under **Realtime web upload**:
+   - Set the webserver URL to your Home Assistant instance: `https://homeassistant.yourdomain.com/api/torque`
+   - Enable 'Send Https: Bearer Token'
+   - Set 'Bearer Token' to the long-lived access code you generated in the previous steps.
+   - Set your email address to match the one used in the integration setup.
+   - Set the 'Logging Interval' to something higher than 10-20 seconds. Anything lower may overload the system.
+   - Optional: Enable 'Only when OBD connected'. This will ensure Torque is only sending data when it is actually connected to your vehicle.
+   - Enable web uploads
    > **🔒 Security Note:**
    > If you are exposing your Home Assistant instance to the internet, you should always use SSL/TLS encryption (HTTPS).<br>
    > Never expose your instance over plain HTTP, as this can put your credentials and data at risk.<br>
    > See the [Home Assistant documentation on securing your installation](https://www.home-assistant.io/docs/configuration/securing/) for setup instructions.
 
 You should now be all set to start logging data to Home Assistant!
-Sensors will be created once Home Assistant recieves valid data from Torque.
+Sensors will be created once Home Assistant receives valid data from Torque.
 
 ---
 

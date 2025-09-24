@@ -3,6 +3,6 @@
   "content_in_root": false,
   "country": "ALL",
   "hide_default_branch": true,
-  "homeassistant": "2025.05.1",
+  "homeassistant": "2024.1.0",
   "render_readme": true
 }

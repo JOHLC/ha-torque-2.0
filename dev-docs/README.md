@@ -4,22 +4,16 @@ This directory contains documentation relevant to the development of the Torque 
 
 ## Structure
 
-The documentation is organized into subdirectories based on the area of development:
+The documentation is organized into files based on different aspects of development:
 
-- **`home-assistant/`**: Contains information and guidelines specific to Home Assistant development, including:
-  - `api/`: Details about Home Assistant APIs (REST, WebSocket, etc.).
-  - `architecture/`: Overview of Home Assistant's architecture.
-  - `core/`: Information on core concepts like entities, platforms, and config flows.
-  - `documenting/`: Standards and guides for writing documentation.
-  - `frontend/`: Information related to frontend development and custom UI.
-  - `internationalization/`: Guidelines for localization and translation.
+- **`ai-code-review.md`**: AI-assisted code review findings and recommendations specific to this integration.
 
 ## Purpose
 
 The documents herein are intended to:
 
-- Provide a quick reference for Home Assistant development best practices.
-- Store relevant excerpts and notes from the official Home Assistant developer documentation.
+- Provide development notes and findings specific to this Torque OBD integration.
+- Store code review feedback and improvement suggestions.
 - Aid in maintaining consistency and quality in the development of this custom integration.
 
-For the most current and comprehensive information, always refer to the [official Home Assistant Developer Documentation](https://developers.home-assistant.io/).
+For comprehensive Home Assistant development information, refer to the [official Home Assistant Developer Documentation](https://developers.home-assistant.io/).
