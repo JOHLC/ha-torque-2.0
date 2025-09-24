@@ -575,13 +575,18 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         if self._last_reported_value is None:
             return True
 
-        # Check minimum update interval
-        if (current_time - self._last_update) < MIN_UPDATE_INTERVAL:
-            return False
-
         # Check for significant change using sensor-specific threshold
         threshold = self._get_significant_change_threshold()
-        return abs(new_value - self._last_reported_value) >= threshold
+        is_significant_change = abs(new_value - self._last_reported_value) >= threshold
+        
+        # Apply throttling logic: allow immediate updates for significant changes,
+        # but throttle minor updates to prevent spam
+        time_since_last_update = current_time - self._last_update
+        
+        if is_significant_change or time_since_last_update >= MIN_UPDATE_INTERVAL:
+            return True
+            
+        return False
 
     async def async_added_to_hass(self) -> None:
         """Restore sensor state when added to Home Assistant."""
