@@ -15,7 +15,7 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 > This integration is maintained and improved with the help of GitHub Copilot among various other AI assistants.<br>
 > I am not a Python coder by any means. Community feedback, contributions, and code reviews are welcome!
 
-## 🆕 What's New in v2025.05.0-b2
+## 🆕 What's New in v1.0.2
 
 - **Unit Handling Simplified:**
   - All manual unit conversion logic has been removed. The integration now assumes all values received from the Torque app are metric, as per the app's behavior.
@@ -36,9 +36,6 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 - 🚙 **Automatic sensor discovery:** New sensors appear as new PIDs are received from Torque.
 - 🏷️ **State Class Only:** Sensors are assigned `state_class` for better statistics. No `device_class` is set or guessed. The unit of measurement is always treated as metric, regardless of what Torque reports.
 - ⚖️ **Native Metric Handling:** All values from Torque are always treated as metric. Home Assistant handles any user-selected unit conversion in the UI.
-
-**Untested features:**
-
 - 🛠️ **Options Flow for Customization:** Easily hide or rename sensors (by PID) from the Home Assistant UI—no YAML or file editing required.
 - 🛡️ **Error Handling:** Malformed or unexpected data is safely ignored and logged for troubleshooting.
 

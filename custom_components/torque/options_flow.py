@@ -12,14 +12,10 @@ class TorqueOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        # Example: allow user to hide PIDs (by PID number, comma separated)
+        # Allow user to hide PIDs (by PID number, comma separated) and rename sensors
         options_schema = vol.Schema({
             vol.Optional("hide_pids", default=self.config_entry.options.get("hide_pids", "")): str,
             vol.Optional("rename_map", default=self.config_entry.options.get("rename_map", "")): str,
-            vol.Optional(
-                "unit_system",
-                default=self.config_entry.options.get("unit_system", "metric")
-            ): vol.In(["metric", "imperial"]),
         })
         return self.async_show_form(step_id="init", data_schema=options_schema)
 
