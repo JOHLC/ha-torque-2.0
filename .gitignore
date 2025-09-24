@@ -159,3 +159,4 @@ config/*
 # Ignore Git internal directories (not needed, but for explicit clarity)
 .git/
 !.git/COMMIT_EDITMSG
+# Force refresh to resolve conflicts
