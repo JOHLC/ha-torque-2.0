@@ -15,17 +15,6 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 > This integration is maintained and improved with the help of GitHub Copilot among various other AI assistants.<br>
 > I am not a Python coder by any means. Community feedback, contributions, and code reviews are welcome!
 
-## 🆕 What's New
-
-- **Unit Handling Simplified:**
-  - All manual unit conversion logic has been removed. The integration now assumes all values received from the Torque app are metric, as per the app's behavior.
-  - Home Assistant will handle any user-selected unit conversion in the UI. This ensures more accurate and consistent sensor values and leverages Home Assistant's built-in unit management.
-- **Internal Cleanup:**
-  - Legacy imperial-to-metric conversion logic has been removed from the codebase.
-  - The `TorqueSensor` class and data ingestion now only map units for display, not for value conversion.
-- **Breaking Change:**
-  - If you previously relied on the integration to convert imperial values to metric, please note that this is now handled by Home Assistant. All values from Torque must be sent as metric.
-
 ## ✨ **Features**
 
 - 🔧 **No YAML required:** Setup is done via the "add integration" page of Home Assistant, through the UI.
@@ -34,8 +23,7 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 - 🎨 **Smart Icons:** Sensors use context-appropriate Material Design Icons (e.g., gas-station for fuel, speedometer for speed, etc.).
 - 🧩 **Unique IDs & Grouping:** All sensors have unique IDs and are grouped per vehicle for easy management.
 - 🚙 **Automatic sensor discovery:** New sensors appear as new PIDs are received from Torque.
-- 🏷️ **State Class Only:** Sensors are assigned `state_class` for better statistics. No `device_class` is set or guessed. The unit of measurement is always treated as metric, regardless of what Torque reports.
-- ⚖️ **Native Metric Handling:** All values from Torque are always treated as metric. Home Assistant handles any user-selected unit conversion in the UI.
+- 🏷️ **State Class Only:** Sensors are assigned `state_class` for better statistics. 
 - 🛠️ **Options Flow for Customization:** Easily hide or rename sensors (by PID) from the Home Assistant UI—no YAML or file editing required.
 - 🛡️ **Error Handling:** Malformed or unexpected data is safely ignored and logged for troubleshooting.
 
