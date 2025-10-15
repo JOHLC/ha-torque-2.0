@@ -434,9 +434,6 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         self._non_numeric_warning_logged = False
         self._config_entry_id = config_entry_id
 
-        # Data validation attributes
-        self._non_numeric_warning_logged = False
-
         # Set up sensor properties
         self._attr_unique_id = f"{DOMAIN}_{vehicle.lower()}_{pid}"
         self._attr_native_unit_of_measurement = unit  # Use raw unit from Torque
@@ -627,7 +624,7 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         Returns:
             Device information dictionary
         """
-        device_dict: dict[str, Any] = {
+        info: dict[str, Any] = {
             "identifiers": {(DOMAIN, self._vehicle)},
             "name": f"Torque {self._vehicle}",
             "manufacturer": "Torque Pro",
@@ -636,9 +633,9 @@ class TorqueSensor(RestoreSensor, SensorEntity):
 
         # Only add config_entry_id if it's available
         if self._config_entry_id:
-            device_dict["config_entry_id"] = self._config_entry_id
+            info["config_entry_id"] = self._config_entry_id
 
-        return device_dict
+        return info
 
     def _pick_icon(
         self, name: str, unit: str | None, device_class: str | None
