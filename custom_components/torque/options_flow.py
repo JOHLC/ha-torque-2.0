@@ -1,16 +1,10 @@
-"""Options flow for Torque integration."""
-import voluptuous as vol # type: ignore
-from homeassistant import config_entries # type: ignore
-from homeassistant.core import callback # type: ignore
-from .const import DOMAIN
+"""Options flow for Torque integration.
 
-class TorqueOptionsFlowHandler(config_entries.OptionsFlow):
-    def __init__(self, config_entry):
-        self.config_entry = config_entry
+This file is now integrated into config_flow.py to follow Home Assistant best practices.
+The options flow functionality is handled by the TorqueOptionsFlow class in config_flow.py.
+"""
 
-    async def async_step_init(self, user_input=None):
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+from __future__ import annotations
 
         # Allow user to hide PIDs (by PID number, comma separated) and rename sensors
         options_schema = vol.Schema({
@@ -23,3 +17,4 @@ class TorqueOptionsFlowHandler(config_entries.OptionsFlow):
     @callback
     def async_get_options_flow(config_entry):
         return TorqueOptionsFlowHandler(config_entry)
+

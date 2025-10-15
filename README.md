@@ -23,9 +23,137 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 - 🎨 **Smart Icons:** Sensors use context-appropriate Material Design Icons (e.g., gas-station for fuel, speedometer for speed, etc.).
 - 🧩 **Unique IDs & Grouping:** All sensors have unique IDs and are grouped per vehicle for easy management.
 - 🚙 **Automatic sensor discovery:** New sensors appear as new PIDs are received from Torque.
+
 - 🏷️ **State Class Only:** Sensors are assigned `state_class` for better statistics. 
 - 🛠️ **Options Flow for Customization:** Easily hide or rename sensors (by PID) from the Home Assistant UI—no YAML or file editing required.
 - 🛡️ **Error Handling:** Malformed or unexpected data is safely ignored and logged for troubleshooting.
+- 🌍 **Full Localization:** Support for multiple languages through Home Assistant's translation system.
+
+---
+
+## 🚀 **Installation & Setup**
+
+#### 🛠️ **HACS Installation (Recommended)**
+
+You can install this integration via [HACS](https://hacs.xyz/) as a custom repository:
+
+1. In Home Assistant, go to **HACS > Integrations**.
+2. Click the three dots (⋮) in the top right and select **Custom repositories**.
+3. Add this repository URL as type: **Integration**:
+
+   ```
+   https://github.com/JOHLC/ha-torque-2.0/
+   ```
+
+4. Search for "Torque" in HACS and install this integration.
+5. Restart Home Assistant.
+
+#### 🖐️ **Manual Installation**
+
+1. Copy the `torque` folder to your Home Assistant `custom_components` directory.
+2. Restart Home Assistant.
+
+---
+
+### ➕ **Integration Setup**
+
+1. Add the integration via **Settings > Devices & Services > Add Integration > Torque**.
+2. Enter an email address
+   - Can be anything, but must match what you enter into the Torque app setup below.
+3. Enter a name for the vehicle
+   - Example: 2023 Ford EcoSport
+4. Click submit then click finish
+
+---
+
+### 📱 **Torque App Setup**
+
+1. Generate a [long-lived access token](https://community.home-assistant.io/t/how-to-get-long-lived-access-token/162159/5?) for your Home Assistant instance.
+   - Give it a good name like 'Torque - Custom'
+2. In the Torque app's main page, go to **Settings > Data Logging & Upload**.
+   - Settings from the live data screen and settings from the main page of the app are different.
+3. Under **Logging Preferences**:
+   - Tap **Select what to log**.
+   - Use the menu to **Add PID to log** and select items of interest.
+4. Under **Realtime web upload**: - Set the webserver URL to your Home Assistant instance: `https://homeassistant.yourdomain.com/api/torque` - Enable 'Send Https: Bearer Token' - Set 'Bearer Token' to the long-lived access code you generated in the previous steps. - Set your email address to match the one used in the integration setup. - Set the 'Logging Interval' to something higher than 10-20 seconds. Anything lower may overload the system. - Optional: Enable 'Only when OBD connected. This will ensure Torque is only sending data when it is actually connected to your vehicle. - Enable web uploads
+   > **🔒 Security Note:**
+   > If you are exposing your Home Assistant instance to the internet, you should always use SSL/TLS encryption (HTTPS).<br>
+   > Never expose your instance over plain HTTP, as this can put your credentials and data at risk.<br>
+   > See the [Home Assistant documentation on securing your installation](https://www.home-assistant.io/docs/configuration/securing/) for setup instructions.
+
+You should now be all set to start logging data to Home Assistant!
+Sensors will be created once Home Assistant recieves valid data from Torque.
+
+---
+
+## 🙋 **FAQ & Troubleshooting**
+
+- **Sensors missing or not updating?**
+
+  - Check that the Torque app is uploading to the correct URL and using the correct email.
+  - Ensure the PIDs you want are enabled in Torque's logging preferences.
+  - Force stop the app on your phone, then re-open it.
+  - For testing, make sure that "Only when OBD connected" is not enabled under the app's 'Realtime web upload' settings.
+  - Check your Home Assistant log for any details. You may also want to enable debug logging (see below).
+
+- **Sensor values look off?**
+  - The integration now always assumes the values sent by the Torque app are metric, regardless of the reported unit. Home Assistant will handle any conversion for display based on your UI preferences.
+  - If you encounter an issue with this, please open a GitHub issue and I'll do my best to investigate.
+
+### 🔍 **Enabling Debug Logging**
+
+To enable debug logging for this integration, add the following to your `configuration.yaml` and restart Home Assistant. This will show detailed logs from the integration in **Settings > System > Logs**.
+
+> **Note:** This may quickly fill up your log as the logging is quite verbose. Remember to remove or revert back to a less verbose level.
+
+```yaml
+logger:
+  default: info
+  logs:
+    custom_components.torque: debug
+```
+
+## 🧪 **Development & Contributing**
+
+This integration now includes comprehensive development tools:
+
+- **Code Quality:** Ruff and Black for linting and formatting
+- **Testing:** Comprehensive test suite with pytest
+- **Type Safety:** Full type hints throughout the codebase
+- **CI/CD:** Automated quality checks via GitHub Actions
+
+To contribute:
+1. Fork the repository
+2. Install development dependencies: `pip install -r requirements-dev.txt`
+3. Run tests: `pytest tests/`
+4. Run linting: `ruff check custom_components/` and `black custom_components/`
+5. Submit a pull request
+
+## 📚 **References**
+
+- [Torque Pro App](https://torque-bhp.com/)
+- [Home Assistant Custom Integration Docs](https://developers.home-assistant.io/docs/creating_integration_file_structure/)
+
+---
+
+## 📨 **Support & Feedback**
+
+- For questions, suggestions, or bug reports, please [open an issue](https://github.com/JOHLC/ha-torque-2.0/issues) on GitHub.
+- Contributions and PRs are welcome!
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Attribution
+
+This project makes use of documentation and examples from the [Home Assistant documentation](https://www.home-assistant.io/docs/), which is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+Portions of this repository may be adapted from or reference content originally published by the Home Assistant project.  
+Copyright © Home Assistant authors.  
+Licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 
 ---
 
