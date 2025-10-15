@@ -84,7 +84,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
                 pid = int(parts[-1])
                 name = entity.original_name or f"PID {pid}"
                 unit = getattr(entity, 'unit_of_measurement', '') or ''
-                sensor = TorqueSensor(name, unit, pid, vehicle, config_entry.options)
+                sensor = TorqueSensor(name, unit, pid, vehicle, config_entry.options, config_entry.entry_id)
                 sensors[pid] = sensor
                 new_entities.append(sensor)
             except Exception as ex:
@@ -120,6 +120,7 @@ class TorqueReceiveDataView(HomeAssistantView):
         self.sensors = sensors
         self.async_add_entities = async_add_entities
         self.config_entry = config_entry
+        self._sensor_error_logged: dict[int, bool] = {}
         _LOGGER.debug(f"TorqueReceiveDataView initialized: email={email}, vehicle={vehicle}")
 
     async def get(self, request: web.Request) -> web.Response:
@@ -169,8 +170,14 @@ class TorqueReceiveDataView(HomeAssistantView):
                     if pid in self.sensors:
                         try:
                             self.sensors[pid].async_on_update(value)
+                            # Reset error flag on success
+                            if pid in self._sensor_error_logged:
+                                del self._sensor_error_logged[pid]
                         except Exception as ex:
-                            _LOGGER.error(f"Error updating sensor for PID {pid}: {ex}")
+                            # Only log the first error for each sensor to avoid spam
+                            if pid not in self._sensor_error_logged:
+                                _LOGGER.error(f"Error updating sensor for PID {pid}: {ex}")
+                                self._sensor_error_logged[pid] = True
                 else:
                     _LOGGER.warning(f"Skipping value for invalid PID: {match.group(1)}")
         new_entities = []
@@ -193,7 +200,7 @@ class TorqueReceiveDataView(HomeAssistantView):
                                 except Exception:
                                     pass
                     sensor_name = rename_map.get(pid, name)
-                    sensor = TorqueSensor(sensor_name, units.get(pid), pid, self.vehicle, self.config_entry.options if self.config_entry else {})
+                    sensor = TorqueSensor(sensor_name, units.get(pid), pid, self.vehicle, self.config_entry.options if self.config_entry else {}, self.config_entry.entry_id if self.config_entry else None)
                     self.sensors[pid] = sensor
                     new_entities.append(sensor)
                     _LOGGER.info(f"Prepared new TorqueSensor: name={sensor_name}, pid={pid}, unit={units.get(pid)}")
@@ -229,10 +236,11 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         "intake": "°C",
     }
 
-    def __init__(self, name: str, unit: str | None, pid: int, vehicle: str, options=None):
+    def __init__(self, name: str, unit: str | None, pid: int, vehicle: str, options=None, config_entry_id: str | None = None):
         self._attr_name = name
         self._pid = pid
         self._vehicle = vehicle
+        self._config_entry_id = config_entry_id
         self._last_update = 0.0
         self._last_reported_value = None
         self._options = options or {}
@@ -241,8 +249,10 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         self._attr_device_class = None  # Never guess or set device_class
         self._attr_state_class = self._guess_state_class(self._attr_native_unit_of_measurement, name)
         self._attr_icon = self._pick_icon(name, self._attr_native_unit_of_measurement, self._attr_device_class)
-        _LOGGER.debug(f"TorqueSensor initialized: name={name}, unit={unit}, pid={pid}, vehicle={vehicle}, device_class={self._attr_device_class}, state_class={self._attr_state_class}, icon={self._attr_icon}")
+        self._attr_unique_id = f"{DOMAIN}_{vehicle}_{pid}"
+        _LOGGER.debug(f"TorqueSensor initialized: name={name}, unit={unit}, pid={pid}, vehicle={vehicle}, unique_id={self._attr_unique_id}, device_class={self._attr_device_class}, state_class={self._attr_state_class}, icon={self._attr_icon}")
         self._non_numeric_warning_logged: bool = False
+        self._update_error_logged: bool = False
 
     def _get_metric_unit(self, name):
         n = name.lower() if name else ""
@@ -274,9 +284,15 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             self._attr_native_value = new_value
             self._last_reported_value = new_value
             self._last_update = now
-            self.async_write_ha_state()
-            if _LOGGER.isEnabledFor(logging.DEBUG):
-                _LOGGER.debug(f"TorqueSensor '{self._attr_name}' updated: value={new_value}")
+            try:
+                self.async_write_ha_state()
+                self._update_error_logged = False  # Reset error flag on success
+                if _LOGGER.isEnabledFor(logging.DEBUG):
+                    _LOGGER.debug(f"TorqueSensor '{self._attr_name}' updated: value={new_value}")
+            except Exception as ex:
+                if not self._update_error_logged:
+                    _LOGGER.error(f"Error writing state for PID {self._pid} ({self._attr_name}): {ex}")
+                    self._update_error_logged = True
         # Do not log throttled updates to avoid log spam
 
     async def async_added_to_hass(self):
@@ -303,6 +319,16 @@ class TorqueSensor(RestoreSensor, SensorEntity):
     def suggested_display_precision(self) -> int:
         """Suggest the display precision for this sensor."""
         return 2
+
+    @property
+    def device_info(self):
+        """Return device information about this entity."""
+        return {
+            "identifiers": {(DOMAIN, self._vehicle)},
+            "name": self._vehicle,
+            "manufacturer": "Torque",
+            "model": "OBD2 Vehicle",
+        }
 
     def _guess_state_class(self, unit: str | None, name: str | None) -> str | None:
         """Guess the Home Assistant state class. Default to measurement."""
