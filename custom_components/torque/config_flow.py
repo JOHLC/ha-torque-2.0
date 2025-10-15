@@ -35,36 +35,31 @@ class TorqueConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            try:
-                # Normalize email to lowercase for consistency
-                email = user_input[CONF_EMAIL].lower().strip()
+            # Normalize email to lowercase for consistency
+            email = user_input[CONF_EMAIL].lower().strip()
 
-                # Validate email format (basic validation)
-                if not email or "@" not in email:
-                    errors[CONF_EMAIL] = "invalid_email"
-                else:
-                    # Set unique ID based on email to prevent duplicates
-                    await self.async_set_unique_id(email)
-                    self._abort_if_unique_id_configured()
+            # Validate email format (basic validation)
+            if not email or "@" not in email:
+                errors[CONF_EMAIL] = "invalid_email"
+            else:
+                # Set unique ID based on email to prevent duplicates
+                await self.async_set_unique_id(email)
+                self._abort_if_unique_id_configured()
 
-                    # Get vehicle name or use default
-                    vehicle_name = user_input.get(CONF_NAME, DEFAULT_NAME).strip()
-                    if not vehicle_name:
-                        vehicle_name = DEFAULT_NAME
+                # Get vehicle name or use default
+                vehicle_name = user_input.get(CONF_NAME, DEFAULT_NAME).strip()
+                if not vehicle_name:
+                    vehicle_name = DEFAULT_NAME
 
-                    _LOGGER.debug("Creating Torque config entry for %s", email)
+                _LOGGER.debug("Creating Torque config entry for %s", email)
 
-                    return self.async_create_entry(
-                        title=vehicle_name,
-                        data={
-                            CONF_EMAIL: email,
-                            CONF_NAME: vehicle_name,
-                        },
-                    )
-
-            except Exception as exc:
-                _LOGGER.error("Unexpected error in config flow: %s", exc)
-                errors["base"] = "unknown_error"
+                return self.async_create_entry(
+                    title=vehicle_name,
+                    data={
+                        CONF_EMAIL: email,
+                        CONF_NAME: vehicle_name,
+                    },
+                )
 
         # Show the form with any validation errors
         data_schema = vol.Schema(
