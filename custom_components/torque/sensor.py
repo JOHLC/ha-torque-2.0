@@ -624,18 +624,12 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         Returns:
             Device information dictionary
         """
-        info: dict[str, Any] = {
+        return {
             "identifiers": {(DOMAIN, self._vehicle)},
             "name": f"Torque {self._vehicle}",
             "manufacturer": "Torque Pro",
             "model": "OBD Vehicle Data",
         }
-
-        # Only add config_entry_id if it's available
-        if self._config_entry_id:
-            info["config_entry_id"] = self._config_entry_id
-
-        return info
 
     def _pick_icon(
         self, name: str, unit: str | None, device_class: str | None
