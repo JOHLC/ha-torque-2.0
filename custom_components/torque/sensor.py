@@ -55,7 +55,6 @@ def convert_pid(value: str) -> int | None:
         Integer PID value or None if conversion fails
     """
     try:
-        _LOGGER.debug("Converting PID from value: %s", value)
         return int(value, 16)
     except (ValueError, TypeError) as exc:
         _LOGGER.warning("Failed to convert PID from value '%s': %s", value, exc)
@@ -109,6 +108,7 @@ async def async_setup_entry(
                     pid=pid,
                     vehicle=vehicle,
                     options=config_entry.options,
+                    config_entry_id=config_entry.entry_id,
                 )
                 sensors[pid] = sensor
                 new_entities.append(sensor)
@@ -212,7 +212,7 @@ class TorqueReceiveDataView(HomeAssistantView):
             HTTP response
         """
         try:
-            _LOGGER.debug("Processing Torque data: %s", data)
+            _LOGGER.debug("Processing Torque data")
 
             # Validate email field presence
             if SENSOR_EMAIL_FIELD not in data:
@@ -261,7 +261,6 @@ class TorqueReceiveDataView(HomeAssistantView):
             pid = convert_pid(match.group(1))
             if pid is not None:
                 names[pid] = value
-                _LOGGER.debug("Parsed name: pid=%d, name=%s", pid, value)
             else:
                 _LOGGER.warning("Skipping name for invalid PID: %s", match.group(1))
 
@@ -272,7 +271,6 @@ class TorqueReceiveDataView(HomeAssistantView):
                 # Convert degree symbol encoding
                 unit = value.replace("\\xC2\\xB0", "°")
                 units[pid] = unit
-                _LOGGER.debug("Parsed unit: pid=%d, unit=%s", pid, unit)
             else:
                 _LOGGER.warning("Skipping unit for invalid PID: %s", match.group(1))
 
@@ -280,7 +278,6 @@ class TorqueReceiveDataView(HomeAssistantView):
         elif match := VALUE_KEY.match(key):
             pid = convert_pid(match.group(1))
             if pid is not None:
-                _LOGGER.debug("Parsed value: pid=%d, value=%s", pid, value)
                 if pid in self.sensors:
                     try:
                         self.sensors[pid].async_on_update(value)
@@ -321,6 +318,9 @@ class TorqueReceiveDataView(HomeAssistantView):
                         pid=pid,
                         vehicle=self.vehicle,
                         options=self.config_entry.options if self.config_entry else {},
+                        config_entry_id=(
+                            self.config_entry.entry_id if self.config_entry else None
+                        ),
                     )
 
                     self.sensors[pid] = sensor
@@ -403,10 +403,7 @@ class TorqueSensor(RestoreSensor, SensorEntity):
     """Representation of a Torque OBD sensor."""
 
     # Constants for sensor behavior
-    _attr_has_entity_name = True
     _attr_should_poll = False
-
-
 
     def __init__(
         self,
@@ -415,6 +412,7 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         pid: int,
         vehicle: str,
         options: dict[str, Any] | None = None,
+        config_entry_id: str | None = None,
     ) -> None:
         """Initialize the Torque sensor.
 
@@ -424,6 +422,7 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             pid: PID identifier
             vehicle: Vehicle name
             options: Configuration options
+            config_entry_id: Configuration entry ID for device linking
         """
         self._attr_name = name
         self._pid = pid
@@ -433,9 +432,7 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         self._options = options or {}
         self._original_unit = unit
         self._non_numeric_warning_logged = False
-
-        # Data validation attributes
-        self._non_numeric_warning_logged = False
+        self._config_entry_id = config_entry_id
 
         # Set up sensor properties
         self._attr_unique_id = f"{DOMAIN}_{vehicle.lower()}_{pid}"
@@ -445,14 +442,11 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         self._attr_icon = self._determine_icon(name)
 
         _LOGGER.debug(
-            "TorqueSensor initialized: name=%s, pid=%d, unit=%s, unique_id=%s",
+            "TorqueSensor initialized: name=%s, pid=%d, unique_id=%s",
             name,
             pid,
-            self._attr_native_unit_of_measurement,
             self._attr_unique_id,
         )
-
-
 
     def _determine_icon(self, name: str) -> str | None:
         """Determine appropriate icon for the sensor.
@@ -544,10 +538,6 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             self._last_update = now
             self.async_write_ha_state()
 
-            _LOGGER.debug(
-                "TorqueSensor '%s' updated: value=%.2f", self._attr_name, new_value
-            )
-
     def _is_value_valid(self, new_value: float) -> bool:
         """Validate sensor value with minimal filtering.
 
@@ -578,15 +568,12 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         # Check for significant change using sensor-specific threshold
         threshold = self._get_significant_change_threshold()
         is_significant_change = abs(new_value - self._last_reported_value) >= threshold
-        
+
         # Apply throttling logic: allow immediate updates for significant changes,
         # but throttle minor updates to prevent spam
         time_since_last_update = current_time - self._last_update
-        
-        if is_significant_change or time_since_last_update >= MIN_UPDATE_INTERVAL:
-            return True
-            
-        return False
+
+        return is_significant_change or time_since_last_update >= MIN_UPDATE_INTERVAL
 
     async def async_added_to_hass(self) -> None:
         """Restore sensor state when added to Home Assistant."""
@@ -637,12 +624,18 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         Returns:
             Device information dictionary
         """
-        return {
+        info: dict[str, Any] = {
             "identifiers": {(DOMAIN, self._vehicle)},
             "name": f"Torque {self._vehicle}",
             "manufacturer": "Torque Pro",
             "model": "OBD Vehicle Data",
         }
+
+        # Only add config_entry_id if it's available
+        if self._config_entry_id:
+            info["config_entry_id"] = self._config_entry_id
+
+        return info
 
     def _pick_icon(
         self, name: str, unit: str | None, device_class: str | None
@@ -670,41 +663,3 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             State class string
         """
         return SensorStateClass.MEASUREMENT
-
-    def _pick_icon(self, name: str | None, unit: str | None, device_class: str | None) -> str | None:
-        """Pick an appropriate icon for the sensor based on name and unit."""
-        if not name:
-            return None
-        
-        name_lower = name.lower()
-        
-        # Speed sensors
-        if "speed" in name_lower:
-            return "mdi:speedometer"
-        
-        # Temperature sensors
-        if any(word in name_lower for word in ["temp", "temperature", "coolant", "intake"]):
-            return "mdi:thermometer"
-        
-        # Fuel related
-        if any(word in name_lower for word in ["fuel", "gas", "consumption", "mpg", "gal"]):
-            return "mdi:gas-station"
-        
-        # Engine/RPM
-        if any(word in name_lower for word in ["rpm", "engine"]):
-            return "mdi:engine"
-        
-        # Voltage/Battery
-        if any(word in name_lower for word in ["volt", "battery"]):
-            return "mdi:car-battery"
-        
-        # Pressure
-        if "pressure" in name_lower:
-            return "mdi:gauge"
-        
-        # Distance/Odometer
-        if any(word in name_lower for word in ["distance", "odometer", "trip"]):
-            return "mdi:map-marker-distance"
-        
-        # Default car icon
-        return "mdi:car"
