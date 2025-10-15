@@ -318,7 +318,9 @@ class TorqueReceiveDataView(HomeAssistantView):
                         pid=pid,
                         vehicle=self.vehicle,
                         options=self.config_entry.options if self.config_entry else {},
-                        config_entry_id=self.config_entry.entry_id if self.config_entry else None,
+                        config_entry_id=(
+                            self.config_entry.entry_id if self.config_entry else None
+                        ),
                     )
 
                     self.sensors[pid] = sensor
@@ -403,8 +405,6 @@ class TorqueSensor(RestoreSensor, SensorEntity):
     # Constants for sensor behavior
     _attr_should_poll = False
 
-
-
     def __init__(
         self,
         name: str,
@@ -450,8 +450,6 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             pid,
             self._attr_unique_id,
         )
-
-
 
     def _determine_icon(self, name: str) -> str | None:
         """Determine appropriate icon for the sensor.
@@ -573,15 +571,12 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         # Check for significant change using sensor-specific threshold
         threshold = self._get_significant_change_threshold()
         is_significant_change = abs(new_value - self._last_reported_value) >= threshold
-        
+
         # Apply throttling logic: allow immediate updates for significant changes,
         # but throttle minor updates to prevent spam
         time_since_last_update = current_time - self._last_update
-        
-        if is_significant_change or time_since_last_update >= MIN_UPDATE_INTERVAL:
-            return True
-            
-        return False
+
+        return is_significant_change or time_since_last_update >= MIN_UPDATE_INTERVAL
 
     async def async_added_to_hass(self) -> None:
         """Restore sensor state when added to Home Assistant."""
@@ -638,11 +633,11 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             "manufacturer": "Torque Pro",
             "model": "OBD Vehicle Data",
         }
-        
+
         # Only add config_entry_id if it's available
         if self._config_entry_id:
             device_dict["config_entry_id"] = self._config_entry_id
-            
+
         return device_dict
 
     def _pick_icon(
@@ -672,40 +667,46 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         """
         return SensorStateClass.MEASUREMENT
 
-    def _pick_icon(self, name: str | None, unit: str | None, device_class: str | None) -> str | None:
+    def _pick_icon(
+        self, name: str | None, unit: str | None, device_class: str | None
+    ) -> str | None:
         """Pick an appropriate icon for the sensor based on name and unit."""
         if not name:
             return None
-        
+
         name_lower = name.lower()
-        
+
         # Speed sensors
         if "speed" in name_lower:
             return "mdi:speedometer"
-        
+
         # Temperature sensors
-        if any(word in name_lower for word in ["temp", "temperature", "coolant", "intake"]):
+        if any(
+            word in name_lower for word in ["temp", "temperature", "coolant", "intake"]
+        ):
             return "mdi:thermometer"
-        
+
         # Fuel related
-        if any(word in name_lower for word in ["fuel", "gas", "consumption", "mpg", "gal"]):
+        if any(
+            word in name_lower for word in ["fuel", "gas", "consumption", "mpg", "gal"]
+        ):
             return "mdi:gas-station"
-        
+
         # Engine/RPM
         if any(word in name_lower for word in ["rpm", "engine"]):
             return "mdi:engine"
-        
+
         # Voltage/Battery
         if any(word in name_lower for word in ["volt", "battery"]):
             return "mdi:car-battery"
-        
+
         # Pressure
         if "pressure" in name_lower:
             return "mdi:gauge"
-        
+
         # Distance/Odometer
         if any(word in name_lower for word in ["distance", "odometer", "trip"]):
             return "mdi:map-marker-distance"
-        
+
         # Default car icon
         return "mdi:car"
