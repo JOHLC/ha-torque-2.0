@@ -26,6 +26,8 @@ from .const import (
     API_PATH,
     CONF_EMAIL,
     CONF_NAME,
+    DEBOUNCE_BUFFER_SIZE,
+    DEBOUNCE_CONSISTENCY_THRESHOLD,
     DEFAULT_NAME,
     DOMAIN,
     MIN_UPDATE_INTERVAL,
@@ -434,6 +436,9 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         self._non_numeric_warning_logged = False
         self._config_entry_id = config_entry_id
 
+        # Debouncing: store recent values to filter out noise
+        self._value_buffer: list[float] = []
+
         # Set up sensor properties
         self._attr_unique_id = f"{DOMAIN}_{vehicle.lower()}_{pid}"
         self._attr_native_unit_of_measurement = unit  # Use raw unit from Torque
@@ -509,7 +514,7 @@ class TorqueSensor(RestoreSensor, SensorEntity):
 
     @callback
     def async_on_update(self, value: str) -> None:
-        """Update sensor value from Torque data with minimal processing.
+        """Update sensor value from Torque data with debouncing to filter noise.
 
         Args:
             value: New sensor value as string from Torque (raw value)
@@ -529,14 +534,85 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         if not self._is_value_valid(new_value):
             return
 
-        # Determine if we should update based on significance and time
-        should_update = self._should_update_value(new_value, now)
+        # Add to debounce buffer
+        self._value_buffer.append(new_value)
+        if len(self._value_buffer) > DEBOUNCE_BUFFER_SIZE:
+            self._value_buffer.pop(0)
 
-        if should_update:
-            self._attr_native_value = new_value
-            self._last_reported_value = new_value
-            self._last_update = now
-            self.async_write_ha_state()
+        # Determine if we should update based on debounced value
+        debounced_value = self._get_debounced_value()
+        if debounced_value is not None:
+            should_update = self._should_update_value(debounced_value, now)
+
+            if should_update:
+                self._attr_native_value = debounced_value
+                self._last_reported_value = debounced_value
+                self._last_update = now
+                self.async_write_ha_state()
+
+    def _get_debounced_value(self) -> float | None:
+        """Get debounced sensor value by checking buffer consistency.
+
+        This method implements debouncing to filter out noisy sensor readings.
+        It stores the last DEBOUNCE_BUFFER_SIZE values and checks if they are
+        consistent before reporting changes. This prevents brief spikes or drops
+        (e.g., speed jumping from 100→50→100 due to signal noise) from being
+        reported to Home Assistant.
+
+        Debouncing logic:
+        1. If buffer is consistent (range <= DEBOUNCE_CONSISTENCY_THRESHOLD),
+           report the mean value for stability.
+        2. If buffer is inconsistent, maintain the last reported value to
+           avoid reporting brief noise spikes.
+        3. Exception: If buffer shows consistently high or low values (all
+           readings on one side of last reported), accept the mean as a real
+           change.
+
+        Returns:
+            Debounced value if buffer is consistent, None otherwise
+        """
+        if not self._value_buffer:
+            return None
+
+        # If buffer isn't full yet, return the latest value
+        if len(self._value_buffer) < DEBOUNCE_BUFFER_SIZE:
+            return self._value_buffer[-1]
+
+        # Calculate statistics for the buffer
+        buffer_mean = sum(self._value_buffer) / len(self._value_buffer)
+        buffer_max = max(self._value_buffer)
+        buffer_min = min(self._value_buffer)
+        buffer_range = buffer_max - buffer_min
+
+        # Check if values in the buffer are consistent
+        if buffer_range <= DEBOUNCE_CONSISTENCY_THRESHOLD:
+            # Values are stable, return the mean
+            return buffer_mean
+
+        # Values are inconsistent - check if it's a real trend or just noise
+        if self._last_reported_value is not None:
+            # Check if all buffer values are consistently higher or lower than last reported
+            # This indicates a real change rather than a brief spike
+            # Use sensor-specific threshold for consistency
+            threshold = self._get_significant_change_threshold()
+            all_higher = all(
+                v > self._last_reported_value + threshold for v in self._value_buffer
+            )
+            all_lower = all(
+                v < self._last_reported_value - threshold for v in self._value_buffer
+            )
+
+            if all_higher or all_lower:
+                # Consistent trend detected - report the mean as a real change
+                return buffer_mean
+
+        # Values are noisy without consistent trend - maintain last reported value
+        # This prevents reporting brief fluctuations
+        return (
+            self._last_reported_value
+            if self._last_reported_value is not None
+            else buffer_mean
+        )
 
     def _is_value_valid(self, new_value: float) -> bool:
         """Validate sensor value with minimal filtering.
