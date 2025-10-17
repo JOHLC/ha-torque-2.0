@@ -243,6 +243,135 @@ class TestTorqueSensor:
         # Raw input had values: 100, 100, 100, 50, 100, 100, 100
         # Output should be stable around 100
 
+    def test_no_flip_flop_with_inconsistent_buffer(self):
+        """Test that debouncing doesn't cause flip-flopping with inconsistent values.
+
+        This specifically tests the issue from PR #21 where sensor values
+        would flip-flop back to previous values due to debouncing logic
+        writing the same old value multiple times.
+        """
+        sensor = TorqueSensor("Engine RPM", "rpm", 12, "Test", {})
+        sensor.async_write_ha_state = Mock()
+
+        # Track state updates
+        state_updates = []
+        original_write = sensor.async_write_ha_state
+
+        def track_state():
+            state_updates.append(sensor._attr_native_value)
+            original_write()
+
+        sensor.async_write_ha_state = track_state
+
+        # Simulate scenario from PR #21: 1002.5, 1001, 1004, 1001
+        # Note: RPM has a 50.0 threshold, so small changes won't trigger updates
+        sensor.async_on_update("1002.5")
+        sensor.async_on_update("1001")  # Only 1.5 RPM change, not significant
+        sensor.async_on_update("1004")  # Buffer inconsistent, keeps 1002.5
+        sensor.async_on_update("1001")  # Buffer still inconsistent
+
+        # Should only have 1 state update (initial value)
+        # Small RPM changes (< 50) don't trigger immediate updates
+        # Without the fix, we would see duplicate writes of 1002.5
+        assert len(state_updates) == 1, f"Expected 1 state update, got {len(state_updates)}"
+        assert state_updates[0] == 1002.5
+
+        # Verify no duplicate consecutive values (flip-flops)
+        for i in range(1, len(state_updates)):
+            assert (
+                state_updates[i] != state_updates[i - 1]
+            ), f"Flip-flop detected: value {state_updates[i]} repeated at position {i}"
+
+    def test_no_flip_flop_with_temperature_sensor(self):
+        """Test flip-flop prevention with temperature sensor (lower threshold).
+
+        Temperature sensors have a 0.5 degree threshold, so changes are more
+        visible. This test demonstrates the fix for the flip-flop issue.
+        """
+        sensor = TorqueSensor("Coolant Temperature", "°C", 5, "Test", {})
+        sensor.async_write_ha_state = Mock()
+
+        # Track state updates
+        state_updates = []
+        original_write = sensor.async_write_ha_state
+
+        def track_state():
+            state_updates.append(sensor._attr_native_value)
+            original_write()
+
+        sensor.async_write_ha_state = track_state
+
+        # Simulate inconsistent values that would cause flip-flopping
+        sensor.async_on_update("80.0")  # Initial value
+        sensor.async_on_update("81.0")  # Significant change (> 0.5)
+        sensor.async_on_update("80.5")  # Buffer: [80, 81, 80.5], inconsistent
+        sensor.async_on_update("81.0")  # Buffer: [81, 80.5, 81], inconsistent
+
+        # Without the fix, the debouncing would return 81.0 (last_reported_value)
+        # multiple times, causing flip-flops in the state history.
+        # With the fix, we only write when the value actually changes.
+
+        # Should have at least 2 state updates (80.0 and 81.0)
+        assert len(state_updates) >= 2, f"Expected at least 2 state updates, got {len(state_updates)}"
+
+        # Verify no duplicate consecutive values (flip-flops)
+        for i in range(1, len(state_updates)):
+            diff = abs(state_updates[i] - state_updates[i - 1])
+            assert diff > 0.01, (
+                f"Flip-flop detected: value {state_updates[i]:.2f} "
+                f"repeated at position {i} (diff: {diff:.4f})"
+            )
+
+    def test_no_flip_flop_extended_scenario(self):
+        """Test extended scenario from PR #21 with RPM values."""
+        sensor = TorqueSensor("Engine RPM", "rpm", 12, "Test", {})
+        sensor.async_write_ha_state = Mock()
+
+        # Track state updates
+        state_updates = []
+        original_write = sensor.async_write_ha_state
+
+        def track_state():
+            state_updates.append(sensor._attr_native_value)
+            original_write()
+
+        sensor.async_write_ha_state = track_state
+
+        # Full scenario from PR #21
+        values = [
+            1002.5,
+            1001,
+            1004,
+            1001,
+            968.5,
+            880.75,
+            864.25,
+            861.5,
+            846,
+            868.5,
+            851.75,
+            862.75,
+            851.75,
+        ]
+
+        for val in values:
+            sensor.async_on_update(str(val))
+
+        # Should have significantly fewer state updates than input values
+        assert len(state_updates) < len(values), (
+            f"Expected fewer than {len(values)} state updates, "
+            f"got {len(state_updates)}"
+        )
+
+        # Verify no duplicate consecutive values (flip-flops)
+        for i in range(1, len(state_updates)):
+            # Allow small floating point differences but catch actual duplicates
+            diff = abs(state_updates[i] - state_updates[i - 1])
+            assert diff > 0.01, (
+                f"Flip-flop detected: value {state_updates[i]:.2f} "
+                f"repeated at position {i} (diff: {diff:.4f})"
+            )
+
 
 class TestTorqueReceiveDataView:
     """Test TorqueReceiveDataView class."""

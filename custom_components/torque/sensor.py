@@ -542,13 +542,16 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         # Determine if we should update based on debounced value
         debounced_value = self._get_debounced_value()
         if debounced_value is not None:
-            should_update = self._should_update_value(debounced_value, now)
+            # Only update if the debounced value is different from current state
+            # This prevents flip-flopping when debouncing returns the same old value
+            if debounced_value != self._attr_native_value:
+                should_update = self._should_update_value(debounced_value, now)
 
-            if should_update:
-                self._attr_native_value = debounced_value
-                self._last_reported_value = debounced_value
-                self._last_update = now
-                self.async_write_ha_state()
+                if should_update:
+                    self._attr_native_value = debounced_value
+                    self._last_reported_value = debounced_value
+                    self._last_update = now
+                    self.async_write_ha_state()
 
     def _get_debounced_value(self) -> float | None:
         """Get debounced sensor value by checking buffer consistency.
