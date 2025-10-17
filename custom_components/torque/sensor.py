@@ -593,11 +593,13 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         if self._last_reported_value is not None:
             # Check if all buffer values are consistently higher or lower than last reported
             # This indicates a real change rather than a brief spike
+            # Use sensor-specific threshold for consistency
+            threshold = self._get_significant_change_threshold()
             all_higher = all(
-                v > self._last_reported_value + 1.0 for v in self._value_buffer
+                v > self._last_reported_value + threshold for v in self._value_buffer
             )
             all_lower = all(
-                v < self._last_reported_value - 1.0 for v in self._value_buffer
+                v < self._last_reported_value - threshold for v in self._value_buffer
             )
 
             if all_higher or all_lower:
