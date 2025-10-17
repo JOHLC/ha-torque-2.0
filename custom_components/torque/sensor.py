@@ -576,7 +576,9 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         is_significant_change = abs(new_value - self._last_reported_value) >= threshold
 
         # Only accept updates if the change is significant
-        # This prevents flip-flopping back to old values
+        # This prevents flip-flopping back to old values when rapid updates arrive
+        # Note: Sensor-specific thresholds (e.g., 50 RPM, 1 km/h) are tuned to filter
+        # noise while still capturing all meaningful state changes
         if not is_significant_change:
             return False
 
