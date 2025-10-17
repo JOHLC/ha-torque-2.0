@@ -406,8 +406,6 @@ class TorqueSensor(RestoreSensor, SensorEntity):
     _attr_has_entity_name = True
     _attr_should_poll = False
 
-
-
     def __init__(
         self,
         name: str,
@@ -451,8 +449,6 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             self._attr_native_unit_of_measurement,
             self._attr_unique_id,
         )
-
-
 
     def _determine_icon(self, name: str) -> str | None:
         """Determine appropriate icon for the sensor.
@@ -578,15 +574,17 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         # Check for significant change using sensor-specific threshold
         threshold = self._get_significant_change_threshold()
         is_significant_change = abs(new_value - self._last_reported_value) >= threshold
-        
-        # Apply throttling logic: allow immediate updates for significant changes,
-        # but throttle minor updates to prevent spam
+
+        # Only accept updates if the change is significant
+        # This prevents flip-flopping back to old values when rapid updates arrive
+        # Note: Sensor-specific thresholds (e.g., 50 RPM, 1 km/h) are tuned to filter
+        # noise while still capturing all meaningful state changes
+        if not is_significant_change:
+            return False
+
+        # For significant changes, enforce minimum time interval to prevent spam
         time_since_last_update = current_time - self._last_update
-        
-        if is_significant_change or time_since_last_update >= MIN_UPDATE_INTERVAL:
-            return True
-            
-        return False
+        return time_since_last_update >= MIN_UPDATE_INTERVAL
 
     async def async_added_to_hass(self) -> None:
         """Restore sensor state when added to Home Assistant."""
@@ -671,40 +669,46 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         """
         return SensorStateClass.MEASUREMENT
 
-    def _pick_icon(self, name: str | None, unit: str | None, device_class: str | None) -> str | None:
+    def _pick_icon(
+        self, name: str | None, unit: str | None, device_class: str | None
+    ) -> str | None:
         """Pick an appropriate icon for the sensor based on name and unit."""
         if not name:
             return None
-        
+
         name_lower = name.lower()
-        
+
         # Speed sensors
         if "speed" in name_lower:
             return "mdi:speedometer"
-        
+
         # Temperature sensors
-        if any(word in name_lower for word in ["temp", "temperature", "coolant", "intake"]):
+        if any(
+            word in name_lower for word in ["temp", "temperature", "coolant", "intake"]
+        ):
             return "mdi:thermometer"
-        
+
         # Fuel related
-        if any(word in name_lower for word in ["fuel", "gas", "consumption", "mpg", "gal"]):
+        if any(
+            word in name_lower for word in ["fuel", "gas", "consumption", "mpg", "gal"]
+        ):
             return "mdi:gas-station"
-        
+
         # Engine/RPM
         if any(word in name_lower for word in ["rpm", "engine"]):
             return "mdi:engine"
-        
+
         # Voltage/Battery
         if any(word in name_lower for word in ["volt", "battery"]):
             return "mdi:car-battery"
-        
+
         # Pressure
         if "pressure" in name_lower:
             return "mdi:gauge"
-        
+
         # Distance/Odometer
         if any(word in name_lower for word in ["distance", "odometer", "trip"]):
             return "mdi:map-marker-distance"
-        
+
         # Default car icon
         return "mdi:car"

@@ -1,4 +1,5 @@
 """Test the Torque sensor platform."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, Mock, patch
@@ -36,11 +37,7 @@ class TestTorqueSensor:
     def test_init(self):
         """Test sensor initialization."""
         sensor = TorqueSensor(
-            name="Engine RPM",
-            unit="rpm",
-            pid=12,
-            vehicle="Test Car",
-            options={}
+            name="Engine RPM", unit="rpm", pid=12, vehicle="Test Car", options={}
         )
 
         assert sensor.name == "Engine RPM"
@@ -103,7 +100,7 @@ class TestTorqueSensor:
 
         # All values should be accepted now - no debouncing
         assert sensor._is_value_valid(0.0) is True  # Zero values accepted
-        assert sensor._is_value_valid(50.0) is True # Non-zero values accepted
+        assert sensor._is_value_valid(50.0) is True  # Non-zero values accepted
         assert sensor._is_value_valid(0.0) is True  # Still accepts zeros
 
     def test_non_speed_sensor_accepts_zeros(self):
@@ -151,6 +148,78 @@ class TestTorqueSensor:
         assert sensor._attr_native_value is None
         assert sensor._last_reported_value is None
 
+    def test_prevent_flip_flop_behavior(self):
+        """Test that sensor prevents flip-flopping back to previous values.
+
+        This tests the specific issue from PR #21 where sensor values would
+        update and then flip-flop back to previous values.
+        """
+        import time
+
+        # RPM sensor should use 50.0 threshold
+        sensor = TorqueSensor("Engine RPM", "rpm", 12, "Test", {})
+        sensor.async_write_ha_state = Mock()
+
+        # Simulate the flip-flop scenario from the issue:
+        # Time 0: Initial value 1001
+        start_time = time.monotonic()
+        sensor.async_on_update("1001")
+        assert sensor._attr_native_value == 1001.0
+
+        # Time +20s: Significant change to 1004 (change = 3, below 50 threshold)
+        # This should NOT be accepted because change is not significant
+        sensor.async_on_update("1004")
+        assert sensor._attr_native_value == 1001.0  # Should stay at 1001
+
+        # Time +21s: Try to flip-flop back to 1001
+        # This should also NOT be accepted
+        sensor.async_on_update("1001")
+        assert sensor._attr_native_value == 1001.0  # Should stay at 1001
+
+        # Now test with a SIGNIFICANT change (>= 50 RPM)
+        # Wait for minimum interval (simulate 15+ seconds passing)
+        sensor._last_update = start_time - 20  # Fake that 20 seconds have passed
+
+        # Time +40s: Significant change to 1053 (change = 52, above 50 threshold)
+        sensor.async_on_update("1053")
+        assert sensor._attr_native_value == 1053.0  # Should accept significant change
+
+        # Immediately after, try to flip-flop back to 1001 (change = 52, significant)
+        # But this should be rejected due to MIN_UPDATE_INTERVAL throttling
+        sensor.async_on_update("1001")
+        assert (
+            sensor._attr_native_value == 1053.0
+        )  # Should stay at 1053 due to throttling
+
+    def test_rpm_sensor_accepts_significant_changes_only(self):
+        """Test that RPM sensor only accepts changes >= 50 RPM threshold."""
+        import time
+
+        sensor = TorqueSensor("Engine RPM", "rpm", 12, "Test", {})
+        sensor.async_write_ha_state = Mock()
+
+        # Initial value
+        start_time = time.monotonic()
+        sensor.async_on_update("1000")
+        assert sensor._attr_native_value == 1000.0
+
+        # Fake that enough time has passed
+        sensor._last_update = start_time - 20
+
+        # Small changes should be rejected
+        sensor.async_on_update("1010")  # +10 RPM, below threshold
+        assert sensor._attr_native_value == 1000.0
+
+        sensor.async_on_update("1040")  # +40 RPM, below threshold
+        assert sensor._attr_native_value == 1000.0
+
+        sensor.async_on_update("1049")  # +49 RPM, below threshold
+        assert sensor._attr_native_value == 1000.0
+
+        # Significant change should be accepted
+        sensor.async_on_update("1050")  # +50 RPM, at threshold
+        assert sensor._attr_native_value == 1050.0
+
 
 class TestTorqueReceiveDataView:
     """Test TorqueReceiveDataView class."""
@@ -186,18 +255,24 @@ class TestTorqueReceiveDataView:
         """Test handling POST request."""
         request = Mock()
         post_data = Mock()
-        post_data.__iter__ = Mock(return_value=iter([
-            ("eml", "test@example.com"),
-            ("userFullName29", "Engine Load"),
-            ("userUnit29", "%"),
-            ("k29", "45.5"),
-        ]))
-        post_data.items = Mock(return_value=[
-            ("eml", "test@example.com"),
-            ("userFullName29", "Engine Load"),
-            ("userUnit29", "%"),
-            ("k29", "45.5"),
-        ])
+        post_data.__iter__ = Mock(
+            return_value=iter(
+                [
+                    ("eml", "test@example.com"),
+                    ("userFullName29", "Engine Load"),
+                    ("userUnit29", "%"),
+                    ("k29", "45.5"),
+                ]
+            )
+        )
+        post_data.items = Mock(
+            return_value=[
+                ("eml", "test@example.com"),
+                ("userFullName29", "Engine Load"),
+                ("userUnit29", "%"),
+                ("k29", "45.5"),
+            ]
+        )
         request.post = AsyncMock(return_value=post_data)
 
         response = await view.post(request)
