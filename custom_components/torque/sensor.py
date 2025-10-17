@@ -562,10 +562,11 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         Debouncing logic:
         1. If buffer is consistent (range <= DEBOUNCE_CONSISTENCY_THRESHOLD),
            report the mean value for stability.
-        2. If buffer is inconsistent but change is large (>2x threshold),
-           report the latest value (likely a real change).
-        3. If buffer is inconsistent and change is small, maintain the last
-           reported value to avoid flickering.
+        2. If buffer is inconsistent, maintain the last reported value to
+           avoid reporting brief noise spikes.
+        3. Exception: If buffer shows consistently high or low values (all
+           readings on one side of last reported), accept the mean as a real
+           change.
 
         Returns:
             Debounced value if buffer is consistent, None otherwise
@@ -588,20 +589,28 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             # Values are stable, return the mean
             return buffer_mean
 
-        # Values are inconsistent, check if we should still update
-        # Return the most recent value if it's significantly different from last reported
-        latest_value = self._value_buffer[-1]
-        if self._last_reported_value is None:
-            return latest_value
+        # Values are inconsistent - check if it's a real trend or just noise
+        if self._last_reported_value is not None:
+            # Check if all buffer values are consistently higher or lower than last reported
+            # This indicates a real change rather than a brief spike
+            all_higher = all(
+                v > self._last_reported_value + 1.0 for v in self._value_buffer
+            )
+            all_lower = all(
+                v < self._last_reported_value - 1.0 for v in self._value_buffer
+            )
 
-        threshold = self._get_significant_change_threshold()
-        if abs(latest_value - self._last_reported_value) >= threshold * 2:
-            # Large change detected, likely real - return latest value
-            return latest_value
+            if all_higher or all_lower:
+                # Consistent trend detected - report the mean as a real change
+                return buffer_mean
 
-        # Values are noisy and change isn't large enough - return last reported value
-        # This prevents reporting fluctuations
-        return self._last_reported_value
+        # Values are noisy without consistent trend - maintain last reported value
+        # This prevents reporting brief fluctuations
+        return (
+            self._last_reported_value
+            if self._last_reported_value is not None
+            else buffer_mean
+        )
 
     def _is_value_valid(self, new_value: float) -> bool:
         """Validate sensor value with minimal filtering.
