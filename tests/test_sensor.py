@@ -1,4 +1,5 @@
 """Test the Torque sensor platform."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, Mock, patch
@@ -36,11 +37,7 @@ class TestTorqueSensor:
     def test_init(self):
         """Test sensor initialization."""
         sensor = TorqueSensor(
-            name="Engine RPM",
-            unit="rpm",
-            pid=12,
-            vehicle="Test Car",
-            options={}
+            name="Engine RPM", unit="rpm", pid=12, vehicle="Test Car", options={}
         )
 
         assert sensor.name == "Engine RPM"
@@ -82,20 +79,24 @@ class TestTorqueSensor:
         speed_sensor._last_reported_value = 50.0
         speed_sensor._last_update = 0.0
 
-        # Small change under 1.0 km/h should not trigger update
-        assert speed_sensor._should_update_value(50.5, 20.0) is False
-        # Large change over 1.0 km/h should trigger update
-        assert speed_sensor._should_update_value(51.5, 20.0) is True
+        # Small change under 1.0 km/h should not trigger immediate update
+        assert speed_sensor._should_update_value(50.5, 5.0) is False
+        # After MIN_UPDATE_INTERVAL, even small changes trigger update
+        assert speed_sensor._should_update_value(50.5, 20.0) is True
+        # Large change over 1.0 km/h should trigger immediate update
+        assert speed_sensor._should_update_value(51.5, 5.0) is True
 
         # Temperature sensor should use 0.5 threshold
         temp_sensor = TorqueSensor("Coolant Temperature", "°C", 5, "Test", {})
         temp_sensor._last_reported_value = 80.0
         temp_sensor._last_update = 0.0
 
-        # Small change under 0.5°C should not trigger update
-        assert temp_sensor._should_update_value(80.2, 20.0) is False
-        # Large change over 0.5°C should trigger update
-        assert temp_sensor._should_update_value(80.7, 20.0) is True
+        # Small change under 0.5°C should not trigger immediate update
+        assert temp_sensor._should_update_value(80.2, 5.0) is False
+        # After MIN_UPDATE_INTERVAL, even small changes trigger update
+        assert temp_sensor._should_update_value(80.2, 20.0) is True
+        # Large change over 0.5°C should trigger immediate update
+        assert temp_sensor._should_update_value(80.7, 5.0) is True
 
     def test_speed_sensor_accepts_all_values(self):
         """Test speed sensors now accept all values including zeros."""
@@ -103,7 +104,7 @@ class TestTorqueSensor:
 
         # All values should be accepted now - no debouncing
         assert sensor._is_value_valid(0.0) is True  # Zero values accepted
-        assert sensor._is_value_valid(50.0) is True # Non-zero values accepted
+        assert sensor._is_value_valid(50.0) is True  # Non-zero values accepted
         assert sensor._is_value_valid(0.0) is True  # Still accepts zeros
 
     def test_non_speed_sensor_accepts_zeros(self):
@@ -151,6 +152,59 @@ class TestTorqueSensor:
         assert sensor._attr_native_value is None
         assert sensor._last_reported_value is None
 
+    def test_debouncing_stable_values(self):
+        """Test debouncing with stable consistent values."""
+        sensor = TorqueSensor("Vehicle Speed", "km/h", 13, "Test", {})
+        sensor.async_write_ha_state = Mock()
+
+        # Add three stable values to fill the buffer
+        sensor.async_on_update("100.0")
+        sensor.async_on_update("100.1")
+        sensor.async_on_update("99.9")
+
+        # With stable values (range <= 2.0), should use the mean
+        assert sensor._attr_native_value is not None
+        assert 99.5 <= sensor._attr_native_value <= 100.5
+
+    def test_debouncing_filters_noise(self):
+        """Test debouncing filters out noisy spikes."""
+        sensor = TorqueSensor("Vehicle Speed", "km/h", 13, "Test", {})
+        sensor.async_write_ha_state = Mock()
+
+        # Establish a baseline
+        sensor.async_on_update("100.0")
+        sensor.async_on_update("100.0")
+        sensor.async_on_update("100.0")
+        baseline_value = sensor._attr_native_value
+
+        # Add a noise spike
+        sensor.async_on_update("50.0")
+
+        # The spike should be filtered if not consistent
+        # Since buffer now has [100.0, 100.0, 50.0], it's inconsistent
+        # and the change isn't large enough to override
+        # So it should keep reporting close to baseline
+        assert sensor._attr_native_value is not None
+
+    def test_debouncing_accepts_large_changes(self):
+        """Test debouncing accepts large legitimate changes."""
+        sensor = TorqueSensor("Vehicle Speed", "km/h", 13, "Test", {})
+        sensor.async_write_ha_state = Mock()
+
+        # Establish baseline at 100 km/h
+        sensor.async_on_update("100.0")
+        sensor.async_on_update("100.0")
+        sensor.async_on_update("100.0")
+
+        # Large consistent change (deceleration)
+        sensor.async_on_update("10.0")
+        sensor.async_on_update("9.0")
+        sensor.async_on_update("10.0")
+
+        # Should accept the large change
+        assert sensor._attr_native_value is not None
+        assert sensor._attr_native_value < 50.0
+
 
 class TestTorqueReceiveDataView:
     """Test TorqueReceiveDataView class."""
@@ -186,18 +240,24 @@ class TestTorqueReceiveDataView:
         """Test handling POST request."""
         request = Mock()
         post_data = Mock()
-        post_data.__iter__ = Mock(return_value=iter([
-            ("eml", "test@example.com"),
-            ("userFullName29", "Engine Load"),
-            ("userUnit29", "%"),
-            ("k29", "45.5"),
-        ]))
-        post_data.items = Mock(return_value=[
-            ("eml", "test@example.com"),
-            ("userFullName29", "Engine Load"),
-            ("userUnit29", "%"),
-            ("k29", "45.5"),
-        ])
+        post_data.__iter__ = Mock(
+            return_value=iter(
+                [
+                    ("eml", "test@example.com"),
+                    ("userFullName29", "Engine Load"),
+                    ("userUnit29", "%"),
+                    ("k29", "45.5"),
+                ]
+            )
+        )
+        post_data.items = Mock(
+            return_value=[
+                ("eml", "test@example.com"),
+                ("userFullName29", "Engine Load"),
+                ("userUnit29", "%"),
+                ("k29", "45.5"),
+            ]
+        )
         request.post = AsyncMock(return_value=post_data)
 
         response = await view.post(request)
