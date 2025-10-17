@@ -553,6 +553,20 @@ class TorqueSensor(RestoreSensor, SensorEntity):
     def _get_debounced_value(self) -> float | None:
         """Get debounced sensor value by checking buffer consistency.
 
+        This method implements debouncing to filter out noisy sensor readings.
+        It stores the last DEBOUNCE_BUFFER_SIZE values and checks if they are
+        consistent before reporting changes. This prevents brief spikes or drops
+        (e.g., speed jumping from 100→50→100 due to signal noise) from being
+        reported to Home Assistant.
+
+        Debouncing logic:
+        1. If buffer is consistent (range <= DEBOUNCE_CONSISTENCY_THRESHOLD),
+           report the mean value for stability.
+        2. If buffer is inconsistent but change is large (>2x threshold),
+           report the latest value (likely a real change).
+        3. If buffer is inconsistent and change is small, maintain the last
+           reported value to avoid flickering.
+
         Returns:
             Debounced value if buffer is consistent, None otherwise
         """

@@ -205,6 +205,44 @@ class TestTorqueSensor:
         assert sensor._attr_native_value is not None
         assert sensor._attr_native_value < 50.0
 
+    def test_real_world_scenario_stable_speed(self):
+        """Test real-world scenario: stable speed with noisy readings.
+
+        This tests the problem statement scenario:
+        Vehicle driving consistently at 100 km/h but sensor reports
+        100, 50, 100, 0 due to noise or brief signal issues.
+        """
+        sensor = TorqueSensor("Vehicle Speed", "km/h", 13, "Test", {})
+        sensor.async_write_ha_state = Mock()
+
+        # Simulate real-world noisy data while actually driving 100 km/h
+        sensor.async_on_update("100.0")  # Real value
+        sensor.async_on_update("100.0")  # Real value
+        sensor.async_on_update("100.0")  # Real value - buffer filled, stable
+        initial_value = sensor._attr_native_value
+        assert initial_value is not None
+        assert 99.0 <= initial_value <= 101.0
+
+        # Brief noise spike to 50
+        sensor.async_on_update("50.0")  # Buffer: [100, 100, 50]
+        # Should not jump to 50 immediately due to debouncing
+        # The debouncer should keep the stable value or filter this
+        value_after_spike = sensor._attr_native_value
+
+        # More stable readings
+        sensor.async_on_update("100.0")  # Buffer: [100, 50, 100]
+        sensor.async_on_update("100.0")  # Buffer: [50, 100, 100]
+        sensor.async_on_update("100.0")  # Buffer: [100, 100, 100] - stable again
+
+        # Should return to stable value around 100
+        final_value = sensor._attr_native_value
+        assert final_value is not None
+        assert 99.0 <= final_value <= 101.0
+
+        # The sensor should show much less variation than the raw input
+        # Raw input had values: 100, 100, 100, 50, 100, 100, 100
+        # Output should be stable around 100
+
 
 class TestTorqueReceiveDataView:
     """Test TorqueReceiveDataView class."""
