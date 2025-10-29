@@ -12,10 +12,19 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.components.sensor import (
     RestoreSensor,
+    SensorDeviceClass,
     SensorEntity,
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import (
+    UnitOfElectricPotential,
+    UnitOfLength,
+    UnitOfPressure,
+    UnitOfSpeed,
+    UnitOfTemperature,
+    UnitOfVolume,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity_registry import (
@@ -64,25 +73,124 @@ def convert_pid(value: str) -> int | None:
 
 
 def normalize_unit(unit: str) -> str:
-    """Normalize speed units from imperial to metric equivalents.
+    """Normalize and standardize units to Home Assistant constants.
 
-    Currently, only speed units ("mph") are normalized to "km/h".
-    Torque sends values in metric regardless of the configured display unit.
-    This function ensures the displayed unit matches the actual value being sent.
-    Additional unit conversions may be added in the future.
+    Converts various unit representations from Torque to Home Assistant's
+    standard unit constants. This ensures proper unit conversion support
+    in the Home Assistant UI.
 
     Args:
         unit: Unit of measurement from Torque app
 
     Returns:
-        Normalized metric unit (currently only for speed units)
+        Normalized unit using Home Assistant constants
     """
-    # Speed unit normalization
-    if unit == "mph":
-        return "km/h"
+    if not unit:
+        return ""
+
+    unit_lower = unit.lower()
+
+    # Speed units
+    if unit_lower in ("mph", "mi/h"):
+        return UnitOfSpeed.MILES_PER_HOUR
+    if unit_lower in ("km/h", "kmh", "kph"):
+        return UnitOfSpeed.KILOMETERS_PER_HOUR
+
+    # Temperature units
+    if unit_lower in ("°c", "c", "celsius"):
+        return UnitOfTemperature.CELSIUS
+    if unit_lower in ("°f", "f", "fahrenheit"):
+        return UnitOfTemperature.FAHRENHEIT
+
+    # Pressure units
+    if unit_lower in ("psi",):
+        return UnitOfPressure.PSI
+    if unit_lower in ("kpa",):
+        return UnitOfPressure.KPA
+    if unit_lower in ("bar",):
+        return UnitOfPressure.BAR
+
+    # Voltage units
+    if unit_lower in ("v", "volt", "volts"):
+        return UnitOfElectricPotential.VOLT
+
+    # Volume units
+    if unit_lower in ("l", "liter", "liters"):
+        return UnitOfVolume.LITERS
+    if unit_lower in ("gal", "gallon", "gallons"):
+        return UnitOfVolume.GALLONS
+
+    # Distance units
+    if unit_lower in ("km", "kilometer", "kilometers"):
+        return UnitOfLength.KILOMETERS
+    if unit_lower in ("mi", "mile", "miles"):
+        return UnitOfLength.MILES
 
     # Return original unit if no normalization needed
     return unit
+
+
+def determine_device_class(name: str, unit: str | None) -> SensorDeviceClass | None:
+    """Determine appropriate device class for a sensor.
+
+    Args:
+        name: Sensor name
+        unit: Unit of measurement (may be string or HA constant)
+
+    Returns:
+        SensorDeviceClass or None if no appropriate class found
+    """
+    if not name or not unit:
+        return None
+
+    name_lower = name.lower()
+
+    # Speed sensors - set if unit matches HA constants
+    if unit in (
+        UnitOfSpeed.KILOMETERS_PER_HOUR,
+        UnitOfSpeed.MILES_PER_HOUR,
+    ):
+        return SensorDeviceClass.SPEED
+
+    # Temperature sensors - only set if unit matches HA constants
+    if unit in (
+        UnitOfTemperature.CELSIUS,
+        UnitOfTemperature.FAHRENHEIT,
+    ):
+        return SensorDeviceClass.TEMPERATURE
+
+    # Pressure sensors - set if unit matches HA constants
+    if unit in (
+        UnitOfPressure.PSI,
+        UnitOfPressure.KPA,
+        UnitOfPressure.BAR,
+    ):
+        return SensorDeviceClass.PRESSURE
+
+    # Voltage sensors - set if unit matches HA constants
+    if unit in (UnitOfElectricPotential.VOLT,):
+        return SensorDeviceClass.VOLTAGE
+
+    # Distance sensors - set if unit matches HA constants
+    if unit in (
+        UnitOfLength.KILOMETERS,
+        UnitOfLength.MILES,
+    ):
+        return SensorDeviceClass.DISTANCE
+
+    # Volume sensors
+    if (
+        "volume" in name_lower
+        or "fuel" in name_lower
+        or unit
+        in (
+            UnitOfVolume.LITERS,
+            UnitOfVolume.GALLONS,
+        )
+    ):
+        return None  # Fuel level is better without device class
+
+    return None
 
 
 async def async_setup_entry(
@@ -296,7 +404,7 @@ class TorqueReceiveDataView(HomeAssistantView):
             if pid is not None:
                 # Convert degree symbol encoding
                 unit = value.replace("\\xC2\\xB0", "°")
-                # Normalize imperial units to metric since Torque sends metric values
+                # Normalize to Home Assistant standard units
                 unit = normalize_unit(unit)
                 units[pid] = unit
             else:
@@ -465,19 +573,24 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         # Debouncing: store recent values to filter out noise
         self._value_buffer: list[float] = []
 
+        # Normalize unit to Home Assistant standard units
+        normalized_unit = normalize_unit(unit) if unit else None
+
         # Set up sensor properties
         self._attr_unique_id = f"{DOMAIN}_{vehicle.lower()}_{pid}"
-        # Normalize unit since Torque sends metric values regardless of configured unit
-        self._attr_native_unit_of_measurement = normalize_unit(unit) if unit else None
-        self._attr_device_class = None  # Don't guess device class to avoid issues
+        self._attr_native_unit_of_measurement = normalized_unit
+        # Set device class to enable unit conversion in Home Assistant UI
+        self._attr_device_class = determine_device_class(name, normalized_unit)
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = self._determine_icon(name)
 
         _LOGGER.debug(
-            "TorqueSensor initialized: name=%s, pid=%d, unique_id=%s",
+            "TorqueSensor initialized: name=%s, pid=%d, unique_id=%s, device_class=%s, unit=%s",
             name,
             pid,
             self._attr_unique_id,
+            self._attr_device_class,
+            normalized_unit,
         )
 
     def _determine_icon(self, name: str) -> str | None:

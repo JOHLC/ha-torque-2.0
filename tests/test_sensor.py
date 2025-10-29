@@ -5,6 +5,13 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.const import (
+    UnitOfElectricPotential,
+    UnitOfPressure,
+    UnitOfSpeed,
+    UnitOfTemperature,
+)
 
 from custom_components.torque.const import DOMAIN
 from custom_components.torque.sensor import (
@@ -12,6 +19,7 @@ from custom_components.torque.sensor import (
     TorqueSensor,
     async_setup_entry,
     convert_pid,
+    determine_device_class,
     normalize_unit,
 )
 
@@ -35,19 +43,94 @@ class TestConvertPid:
 class TestNormalizeUnit:
     """Test unit normalization function."""
 
-    def test_normalize_unit_mph_to_kmh(self):
-        """Test mph is normalized to km/h since Torque sends metric values."""
-        assert normalize_unit("mph") == "km/h"
+    def test_normalize_unit_mph(self):
+        """Test mph is normalized to Home Assistant constant."""
+        assert normalize_unit("mph") == UnitOfSpeed.MILES_PER_HOUR
+
+    def test_normalize_unit_kmh(self):
+        """Test km/h is normalized to Home Assistant constant."""
+        assert normalize_unit("km/h") == UnitOfSpeed.KILOMETERS_PER_HOUR
+        assert normalize_unit("kmh") == UnitOfSpeed.KILOMETERS_PER_HOUR
+        assert normalize_unit("kph") == UnitOfSpeed.KILOMETERS_PER_HOUR
+
+    def test_normalize_unit_temperature(self):
+        """Test temperature units are normalized."""
+        assert normalize_unit("°C") == UnitOfTemperature.CELSIUS
+        assert normalize_unit("C") == UnitOfTemperature.CELSIUS
+        assert normalize_unit("celsius") == UnitOfTemperature.CELSIUS
+        assert normalize_unit("°F") == UnitOfTemperature.FAHRENHEIT
+        assert normalize_unit("F") == UnitOfTemperature.FAHRENHEIT
+        assert normalize_unit("fahrenheit") == UnitOfTemperature.FAHRENHEIT
+
+    def test_normalize_unit_pressure(self):
+        """Test pressure units are normalized."""
+        assert normalize_unit("psi") == UnitOfPressure.PSI
+        assert normalize_unit("kpa") == UnitOfPressure.KPA
+        assert normalize_unit("bar") == UnitOfPressure.BAR
+
+    def test_normalize_unit_voltage(self):
+        """Test voltage units are normalized."""
+        assert normalize_unit("V") == UnitOfElectricPotential.VOLT
+        assert normalize_unit("volt") == UnitOfElectricPotential.VOLT
+        assert normalize_unit("volts") == UnitOfElectricPotential.VOLT
 
     def test_normalize_unit_unchanged(self):
-        """Test that other units remain unchanged."""
-        assert normalize_unit("km/h") == "km/h"
-        assert normalize_unit("°C") == "°C"
-        assert normalize_unit("°F") == "°F"
+        """Test that unrecognized units remain unchanged."""
         assert normalize_unit("rpm") == "rpm"
-        assert normalize_unit("psi") == "psi"
-        assert normalize_unit("V") == "V"
         assert normalize_unit("%") == "%"
+        assert normalize_unit("") == ""
+
+
+class TestDetermineDeviceClass:
+    """Test device class determination function."""
+
+    def test_determine_device_class_speed_by_name(self):
+        """Test speed device class is determined from sensor name."""
+        assert (
+            determine_device_class("Vehicle Speed", UnitOfSpeed.KILOMETERS_PER_HOUR)
+            == SensorDeviceClass.SPEED
+        )
+
+    def test_determine_device_class_speed_by_unit(self):
+        """Test speed device class is determined from unit."""
+        assert (
+            determine_device_class("GPS Speed", UnitOfSpeed.MILES_PER_HOUR)
+            == SensorDeviceClass.SPEED
+        )
+
+    def test_determine_device_class_temperature(self):
+        """Test temperature device class is determined."""
+        assert (
+            determine_device_class("Coolant Temperature", UnitOfTemperature.CELSIUS)
+            == SensorDeviceClass.TEMPERATURE
+        )
+        assert (
+            determine_device_class("Engine Temp", UnitOfTemperature.FAHRENHEIT)
+            == SensorDeviceClass.TEMPERATURE
+        )
+
+    def test_determine_device_class_pressure(self):
+        """Test pressure device class is determined."""
+        assert (
+            determine_device_class("Manifold Pressure", UnitOfPressure.PSI)
+            == SensorDeviceClass.PRESSURE
+        )
+
+    def test_determine_device_class_voltage(self):
+        """Test voltage device class is determined."""
+        assert (
+            determine_device_class("Battery Voltage", UnitOfElectricPotential.VOLT)
+            == SensorDeviceClass.VOLTAGE
+        )
+        assert (
+            determine_device_class("Control Module Voltage", "V")
+            == SensorDeviceClass.VOLTAGE
+        )
+
+    def test_determine_device_class_none(self):
+        """Test None is returned for unrecognized sensors."""
+        assert determine_device_class("Engine RPM", "rpm") is None
+        assert determine_device_class("Throttle Position", "%") is None
 
 
 class TestTorqueSensor:
@@ -71,11 +154,13 @@ class TestTorqueSensor:
         assert sensor._attr_native_unit_of_measurement == "°F"
 
     def test_determine_unit_speed(self):
-        """Test that mph unit is normalized to km/h since Torque sends metric values."""
-        # When creating sensor with mph unit, it should be normalized to km/h
+        """Test that mph unit is normalized to Home Assistant constant."""
+        # When creating sensor with mph unit, it should be normalized to HA constant
         sensor = TorqueSensor("Vehicle Speed", "mph", 13, "Test", {})
-        # Should normalize mph to km/h since Torque always sends metric values
-        assert sensor._attr_native_unit_of_measurement == "km/h"
+        # Should normalize mph to HA constant
+        assert sensor._attr_native_unit_of_measurement == UnitOfSpeed.MILES_PER_HOUR
+        # Should also set device class for speed
+        assert sensor._attr_device_class == SensorDeviceClass.SPEED
 
     def test_determine_icon_temperature(self):
         """Test icon determination for temperature sensors."""
@@ -430,25 +515,13 @@ class TestTorqueReceiveDataView:
     async def test_post_request(self, view):
         """Test handling POST request."""
         request = Mock()
-        post_data = Mock()
-        post_data.__iter__ = Mock(
-            return_value=iter(
-                [
-                    ("eml", "test@example.com"),
-                    ("userFullName29", "Engine Load"),
-                    ("userUnit29", "%"),
-                    ("k29", "45.5"),
-                ]
-            )
-        )
-        post_data.items = Mock(
-            return_value=[
-                ("eml", "test@example.com"),
-                ("userFullName29", "Engine Load"),
-                ("userUnit29", "%"),
-                ("k29", "45.5"),
-            ]
-        )
+        # Create a proper dict-like mock that can be converted to dict
+        post_data = {
+            "eml": "test@example.com",
+            "userFullName29": "Engine Load",
+            "userUnit29": "%",
+            "k29": "45.5",
+        }
         request.post = AsyncMock(return_value=post_data)
 
         response = await view.post(request)
@@ -529,6 +602,10 @@ class TestTorqueReceiveDataView:
 
 async def test_async_setup_entry(hass, mock_config_entry, mock_add_entities):
     """Test setting up the sensor platform."""
+    # Mock hass.http to have register_view
+    hass.http = Mock()
+    hass.http.register_view = Mock()
+
     with patch(
         "custom_components.torque.sensor.async_get_entity_registry"
     ) as mock_registry:
