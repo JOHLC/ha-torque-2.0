@@ -29,6 +29,7 @@ class TestConvertPid:
         """Test converting invalid strings."""
         assert convert_pid("invalid") is None
         assert convert_pid("") is None
+        assert convert_pid(None) is None
 
 
 class TestNormalizeUnit:
@@ -47,7 +48,6 @@ class TestNormalizeUnit:
         assert normalize_unit("psi") == "psi"
         assert normalize_unit("V") == "V"
         assert normalize_unit("%") == "%"
-        assert convert_pid(None) is None
 
 
 class TestTorqueSensor:
