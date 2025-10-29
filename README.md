@@ -26,6 +26,8 @@ This integration creates sensors for every OBD-II PID that your car reports, ena
 
 - 🏷️ **State Class Only:** Sensors are assigned `state_class` for better statistics. 
 - 🛠️ **Options Flow for Customization:** Easily hide or rename sensors (by PID) from the Home Assistant UI—no YAML or file editing required.
+- 📏 **Per-Entity Unit Customization:** Change units of measurement for individual sensors in the entity settings (e.g., change km/h to mph, °C to °F).
+- 🎯 **Smart Device Classes:** Automatically assigns appropriate device classes to enable Home Assistant's built-in unit conversion for speed, temperature, pressure, voltage, and distance sensors.
 - 🛡️ **Error Handling:** Malformed or unexpected data is safely ignored and logged for troubleshooting.
 - 🌍 **Full Localization:** Support for multiple languages through Home Assistant's translation system.
 
@@ -97,8 +99,10 @@ Sensors will be created once Home Assistant recieves valid data from Torque.
   - Check your Home Assistant log for any details. You may also want to enable debug logging (see below).
 
 - **Sensor values look off?**
-  - The integration now always assumes the values sent by the Torque app are metric, regardless of the reported unit. Home Assistant will handle any conversion for display based on your UI preferences.
-  - If you encounter an issue with this, please open a GitHub issue and I'll do my best to investigate.
+  - The integration normalizes units to Home Assistant standard units and enables automatic unit conversion.
+  - For sensors with recognized device classes (speed, temperature, pressure, etc.), you can customize the displayed unit in the entity settings.
+  - If a sensor's unit is not being converted correctly, check that the sensor has the correct device class assigned.
+  - If you encounter persistent unit conversion issues, please open a GitHub issue with details.
 
 ### 🔍 **Enabling Debug Logging**
 
@@ -199,6 +203,22 @@ After setup, you can customize the integration:
 3. **Rename Sensors**: Enter comma-separated pairs to rename sensors by PID (e.g., `12:Engine Temp,34:Speed`).
 4. Click submit to apply changes.
 
+### 📏 **Customizing Units of Measurement**
+
+You can customize the unit of measurement for individual sensors:
+
+1. Go to **Settings > Devices & Services > Torque** and select your vehicle device.
+2. Click on any sensor to open its details.
+3. Click the settings icon (⚙️) in the top right.
+4. Under **Unit of measurement**, select your preferred unit from the dropdown.
+   - Speed sensors: km/h, mph, m/s, etc.
+   - Temperature sensors: °C, °F
+   - Pressure sensors: PSI, kPa, bar
+   - And more!
+5. Click **Update** to save your changes.
+
+> **Note:** Unit conversion is available for sensors with recognized device classes (speed, temperature, pressure, voltage, distance). Custom or unrecognized sensor types will display in their original units.
+
 ---
 
 ### 📱 **Torque App Setup**
@@ -239,8 +259,10 @@ Sensors will be created once Home Assistant receives valid data from Torque.
   - Check your Home Assistant log for any details. You may also want to enable debug logging (see below).
 
 - **Sensor values look off?**
-  - The integration now always assumes the values sent by the Torque app are metric, regardless of the reported unit. Home Assistant will handle any conversion for display based on your UI preferences.
-  - If you encounter an issue with this, please open a GitHub issue and I'll do my best to investigate.
+  - The integration normalizes units to Home Assistant standard units and enables automatic unit conversion.
+  - For sensors with recognized device classes (speed, temperature, pressure, etc.), you can customize the displayed unit in the entity settings.
+  - If a sensor's unit is not being converted correctly, check that the sensor has the correct device class assigned.
+  - If you encounter persistent unit conversion issues, please open a GitHub issue with details.
 
 ### 🔍 **Enabling Debug Logging**
 
