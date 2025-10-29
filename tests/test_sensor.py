@@ -12,6 +12,7 @@ from custom_components.torque.sensor import (
     TorqueSensor,
     async_setup_entry,
     convert_pid,
+    normalize_unit,
 )
 
 
@@ -29,6 +30,24 @@ class TestConvertPid:
         assert convert_pid("invalid") is None
         assert convert_pid("") is None
         assert convert_pid(None) is None
+
+
+class TestNormalizeUnit:
+    """Test unit normalization function."""
+
+    def test_normalize_unit_mph_to_kmh(self):
+        """Test mph is normalized to km/h since Torque sends metric values."""
+        assert normalize_unit("mph") == "km/h"
+
+    def test_normalize_unit_unchanged(self):
+        """Test that other units remain unchanged."""
+        assert normalize_unit("km/h") == "km/h"
+        assert normalize_unit("°C") == "°C"
+        assert normalize_unit("°F") == "°F"
+        assert normalize_unit("rpm") == "rpm"
+        assert normalize_unit("psi") == "psi"
+        assert normalize_unit("V") == "V"
+        assert normalize_unit("%") == "%"
 
 
 class TestTorqueSensor:
@@ -52,10 +71,11 @@ class TestTorqueSensor:
         assert sensor._attr_native_unit_of_measurement == "°F"
 
     def test_determine_unit_speed(self):
-        """Test unit determination uses raw unit from Torque."""
+        """Test that mph unit is normalized to km/h since Torque sends metric values."""
+        # When creating sensor with mph unit, it should be normalized to km/h
         sensor = TorqueSensor("Vehicle Speed", "mph", 13, "Test", {})
-        # Should use raw unit from Torque, not convert to km/h
-        assert sensor._attr_native_unit_of_measurement == "mph"
+        # Should normalize mph to km/h since Torque always sends metric values
+        assert sensor._attr_native_unit_of_measurement == "km/h"
 
     def test_determine_icon_temperature(self):
         """Test icon determination for temperature sensors."""
@@ -273,7 +293,9 @@ class TestTorqueSensor:
         # Should only have 1 state update (initial value)
         # Small RPM changes (< 50) don't trigger immediate updates
         # Without the fix, we would see duplicate writes of 1002.5
-        assert len(state_updates) == 1, f"Expected 1 state update, got {len(state_updates)}"
+        assert (
+            len(state_updates) == 1
+        ), f"Expected 1 state update, got {len(state_updates)}"
         assert state_updates[0] == 1002.5
 
         # Verify no duplicate consecutive values (flip-flops)
@@ -312,7 +334,9 @@ class TestTorqueSensor:
         # With the fix, we only write when the value actually changes.
 
         # Should have at least 2 state updates (80.0 and 81.0)
-        assert len(state_updates) >= 2, f"Expected at least 2 state updates, got {len(state_updates)}"
+        assert (
+            len(state_updates) >= 2
+        ), f"Expected at least 2 state updates, got {len(state_updates)}"
 
         # Verify no duplicate consecutive values (flip-flops)
         for i in range(1, len(state_updates)):

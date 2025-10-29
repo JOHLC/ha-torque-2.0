@@ -63,6 +63,28 @@ def convert_pid(value: str) -> int | None:
         return None
 
 
+def normalize_unit(unit: str) -> str:
+    """Normalize speed units from imperial to metric equivalents.
+
+    Currently, only speed units ("mph") are normalized to "km/h".
+    Torque sends values in metric regardless of the configured display unit.
+    This function ensures the displayed unit matches the actual value being sent.
+    Additional unit conversions may be added in the future.
+
+    Args:
+        unit: Unit of measurement from Torque app
+
+    Returns:
+        Normalized metric unit (currently only for speed units)
+    """
+    # Speed unit normalization
+    if unit == "mph":
+        return "km/h"
+
+    # Return original unit if no normalization needed
+    return unit
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -103,6 +125,8 @@ async def async_setup_entry(
                 pid = int(parts[-1])
                 name = entity.original_name or f"PID {pid}"
                 unit = getattr(entity, "unit_of_measurement", "") or ""
+                # Normalize unit to handle entities that were registered with imperial units before normalization was implemented
+                unit = normalize_unit(unit)
 
                 sensor = TorqueSensor(
                     name=name,
@@ -272,6 +296,8 @@ class TorqueReceiveDataView(HomeAssistantView):
             if pid is not None:
                 # Convert degree symbol encoding
                 unit = value.replace("\\xC2\\xB0", "°")
+                # Normalize imperial units to metric since Torque sends metric values
+                unit = normalize_unit(unit)
                 units[pid] = unit
             else:
                 _LOGGER.warning("Skipping unit for invalid PID: %s", match.group(1))
@@ -441,7 +467,8 @@ class TorqueSensor(RestoreSensor, SensorEntity):
 
         # Set up sensor properties
         self._attr_unique_id = f"{DOMAIN}_{vehicle.lower()}_{pid}"
-        self._attr_native_unit_of_measurement = unit  # Use raw unit from Torque
+        # Normalize unit since Torque sends metric values regardless of configured unit
+        self._attr_native_unit_of_measurement = normalize_unit(unit) if unit else None
         self._attr_device_class = None  # Don't guess device class to avoid issues
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = self._determine_icon(name)
