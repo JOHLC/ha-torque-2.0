@@ -64,17 +64,18 @@ def convert_pid(value: str) -> int | None:
 
 
 def normalize_unit(unit: str) -> str:
-    """Normalize unit from imperial to metric equivalents.
+    """Normalize speed units from imperial to metric equivalents.
 
+    Currently, only speed units ("mph") are normalized to "km/h".
     Torque sends values in metric regardless of the configured display unit.
-    This function converts imperial units to their metric equivalents so that
-    the displayed unit matches the actual value being sent.
+    This function ensures the displayed unit matches the actual value being sent.
+    Additional unit conversions may be added in the future.
 
     Args:
         unit: Unit of measurement from Torque app
 
     Returns:
-        Normalized metric unit
+        Normalized metric unit (currently only for speed units)
     """
     # Speed unit normalization
     if unit == "mph":
