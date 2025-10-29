@@ -125,7 +125,7 @@ async def async_setup_entry(
                 pid = int(parts[-1])
                 name = entity.original_name or f"PID {pid}"
                 unit = getattr(entity, "unit_of_measurement", "") or ""
-                # Normalize unit in case it was stored before the fix
+                # Normalize unit to handle entities that were registered with imperial units before normalization was implemented
                 unit = normalize_unit(unit)
 
                 sensor = TorqueSensor(
