@@ -1,4 +1,5 @@
 """Test the Torque config flow."""
+
 from __future__ import annotations
 
 from homeassistant import config_entries
@@ -148,8 +149,6 @@ async def test_options_flow_defaults(hass: HomeAssistant, mock_config_entry) -> 
     assert result["step_id"] == "init"
 
     # Configure with empty input to test defaults
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {}
-    )
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
 
     assert result["type"] is FlowResultType.CREATE_ENTRY

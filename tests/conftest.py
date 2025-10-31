@@ -1,5 +1,5 @@
-
 """Test fixtures for Torque integration tests."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, Mock
