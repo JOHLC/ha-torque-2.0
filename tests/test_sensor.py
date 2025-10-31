@@ -175,7 +175,7 @@ class TestTorqueSensor:
     def test_should_update_value_first_update(self):
         """Test that first update is always allowed."""
         sensor = TorqueSensor("Test", "unit", 1, "Test", {})
-        assert sensor._should_update_value(50.0, 0.0) is True
+        assert sensor._should_update_value(50.0) is True
 
     def test_should_update_value_sensor_specific_thresholds(self):
         """Test update thresholds are sensor-specific.
@@ -189,9 +189,9 @@ class TestTorqueSensor:
         speed_sensor._last_update = 0.0
 
         # Small change under 1.0 km/h should not be considered significant
-        assert speed_sensor._should_update_value(50.5, 5.0) is False
+        assert speed_sensor._should_update_value(50.5) is False
         # Large change over 1.0 km/h should be considered significant
-        assert speed_sensor._should_update_value(51.5, 5.0) is True
+        assert speed_sensor._should_update_value(51.5) is True
 
         # Temperature sensor should use 0.5 threshold
         temp_sensor = TorqueSensor("Coolant Temperature", "°C", 5, "Test", {})
@@ -199,9 +199,9 @@ class TestTorqueSensor:
         temp_sensor._last_update = 0.0
 
         # Small change under 0.5°C should not be considered significant
-        assert temp_sensor._should_update_value(80.2, 5.0) is False
+        assert temp_sensor._should_update_value(80.2) is False
         # Large change over 0.5°C should be considered significant
-        assert temp_sensor._should_update_value(80.7, 5.0) is True
+        assert temp_sensor._should_update_value(80.7) is True
 
     def test_speed_sensor_accepts_all_values(self):
         """Test speed sensors now accept all values including zeros."""
@@ -523,16 +523,7 @@ class TestTorqueSensor:
 
         # Simulate the rapid alternating pattern from the issue
         # Values alternate between ~5 and ~35 km/h every second
-        alternating_values = [
-            "5.178",
-            "35.211",
-            "5.178",
-            "35.211",
-            "5.178",
-            "35.211",
-            "5.178",
-            "35.211",
-        ]
+        alternating_values = [str(5.178 if i % 2 == 0 else 35.211) for i in range(8)]
 
         start_time = time.monotonic()
         for i, value in enumerate(alternating_values):
