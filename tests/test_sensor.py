@@ -511,13 +511,11 @@ class TestTorqueSensor:
         sensor = TorqueSensor("Speed (OBD)", "km/h", 13, "Test", {})
         sensor.async_write_ha_state = Mock()
 
-        # Track state updates with timestamps
+        # Track state updates
         state_updates = []
-        update_times = []
 
         def track_state():
             state_updates.append(sensor._attr_native_value)
-            update_times.append(time.monotonic())
 
         sensor.async_write_ha_state = track_state
 
