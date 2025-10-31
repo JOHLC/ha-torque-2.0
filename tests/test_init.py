@@ -1,4 +1,5 @@
 """Test the Torque integration setup."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -21,7 +22,9 @@ async def test_async_setup(hass: HomeAssistant) -> None:
     assert result is True
 
 
-async def test_async_setup_entry(hass: HomeAssistant, mock_config_entry: ConfigEntry) -> None:
+async def test_async_setup_entry(
+    hass: HomeAssistant, mock_config_entry: ConfigEntry
+) -> None:
     """Test setting up the config entry."""
     with patch(
         "homeassistant.config_entries.ConfigEntries.async_forward_entry_setups"
@@ -36,7 +39,9 @@ async def test_async_setup_entry(hass: HomeAssistant, mock_config_entry: ConfigE
         assert mock_forward.called
 
 
-async def test_async_unload_entry(hass: HomeAssistant, mock_config_entry: ConfigEntry) -> None:
+async def test_async_unload_entry(
+    hass: HomeAssistant, mock_config_entry: ConfigEntry
+) -> None:
     """Test unloading the config entry."""
     # First set up the entry
     hass.data[DOMAIN] = {mock_config_entry.entry_id: mock_config_entry.data}
@@ -53,7 +58,9 @@ async def test_async_unload_entry(hass: HomeAssistant, mock_config_entry: Config
         assert mock_unload.called
 
 
-async def test_async_unload_entry_failed(hass: HomeAssistant, mock_config_entry: ConfigEntry) -> None:
+async def test_async_unload_entry_failed(
+    hass: HomeAssistant, mock_config_entry: ConfigEntry
+) -> None:
     """Test failed unloading of config entry."""
     hass.data[DOMAIN] = {mock_config_entry.entry_id: mock_config_entry.data}
 

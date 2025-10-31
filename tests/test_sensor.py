@@ -175,33 +175,33 @@ class TestTorqueSensor:
     def test_should_update_value_first_update(self):
         """Test that first update is always allowed."""
         sensor = TorqueSensor("Test", "unit", 1, "Test", {})
-        assert sensor._should_update_value(50.0, 0.0) is True
+        assert sensor._should_update_value(50.0) is True
 
     def test_should_update_value_sensor_specific_thresholds(self):
-        """Test update thresholds are sensor-specific."""
+        """Test update thresholds are sensor-specific.
+
+        Note: This tests the significance check only. Time throttling is now
+        handled separately in async_on_update.
+        """
         # Speed sensor should use 1.0 threshold
         speed_sensor = TorqueSensor("Vehicle Speed", "km/h", 13, "Test", {})
         speed_sensor._last_reported_value = 50.0
         speed_sensor._last_update = 0.0
 
-        # Small change under 1.0 km/h should not trigger immediate update
-        assert speed_sensor._should_update_value(50.5, 5.0) is False
-        # After MIN_UPDATE_INTERVAL, even small changes trigger update
-        assert speed_sensor._should_update_value(50.5, 20.0) is True
-        # Large change over 1.0 km/h should trigger immediate update
-        assert speed_sensor._should_update_value(51.5, 5.0) is True
+        # Small change under 1.0 km/h should not be considered significant
+        assert speed_sensor._should_update_value(50.5) is False
+        # Large change over 1.0 km/h should be considered significant
+        assert speed_sensor._should_update_value(51.5) is True
 
         # Temperature sensor should use 0.5 threshold
         temp_sensor = TorqueSensor("Coolant Temperature", "°C", 5, "Test", {})
         temp_sensor._last_reported_value = 80.0
         temp_sensor._last_update = 0.0
 
-        # Small change under 0.5°C should not trigger immediate update
-        assert temp_sensor._should_update_value(80.2, 5.0) is False
-        # After MIN_UPDATE_INTERVAL, even small changes trigger update
-        assert temp_sensor._should_update_value(80.2, 20.0) is True
-        # Large change over 0.5°C should trigger immediate update
-        assert temp_sensor._should_update_value(80.7, 5.0) is True
+        # Small change under 0.5°C should not be considered significant
+        assert temp_sensor._should_update_value(80.2) is False
+        # Large change over 0.5°C should be considered significant
+        assert temp_sensor._should_update_value(80.7) is True
 
     def test_speed_sensor_accepts_all_values(self):
         """Test speed sensors now accept all values including zeros."""
@@ -280,7 +280,6 @@ class TestTorqueSensor:
         sensor.async_on_update("100.0")
         sensor.async_on_update("100.0")
         sensor.async_on_update("100.0")
-        baseline_value = sensor._attr_native_value
 
         # Add a noise spike
         sensor.async_on_update("50.0")
@@ -293,18 +292,27 @@ class TestTorqueSensor:
 
     def test_debouncing_accepts_large_changes(self):
         """Test debouncing accepts large legitimate changes."""
+        import time
+        from unittest.mock import patch
+
+        from custom_components.torque.const import MIN_UPDATE_INTERVAL
+
         sensor = TorqueSensor("Vehicle Speed", "km/h", 13, "Test", {})
         sensor.async_write_ha_state = Mock()
 
-        # Establish baseline at 100 km/h
-        sensor.async_on_update("100.0")
-        sensor.async_on_update("100.0")
-        sensor.async_on_update("100.0")
+        start_time = time.monotonic()
 
-        # Large consistent change (deceleration)
-        sensor.async_on_update("10.0")
-        sensor.async_on_update("9.0")
-        sensor.async_on_update("10.0")
+        # Establish baseline at 100 km/h
+        with patch("time.monotonic", return_value=start_time):
+            sensor.async_on_update("100.0")
+            sensor.async_on_update("100.0")
+            sensor.async_on_update("100.0")
+
+        # Large consistent change (deceleration) after MIN_UPDATE_INTERVAL
+        with patch("time.monotonic", return_value=start_time + MIN_UPDATE_INTERVAL + 1):
+            sensor.async_on_update("10.0")
+            sensor.async_on_update("9.0")
+            sensor.async_on_update("10.0")
 
         # Should accept the large change
         assert sensor._attr_native_value is not None
@@ -332,7 +340,6 @@ class TestTorqueSensor:
         sensor.async_on_update("50.0")  # Buffer: [100, 100, 50]
         # Should not jump to 50 immediately due to debouncing
         # The debouncer should keep the stable value or filter this
-        value_after_spike = sensor._attr_native_value
 
         # More stable readings
         sensor.async_on_update("100.0")  # Buffer: [100, 50, 100]
@@ -395,6 +402,11 @@ class TestTorqueSensor:
         Temperature sensors have a 0.5 degree threshold, so changes are more
         visible. This test demonstrates the fix for the flip-flop issue.
         """
+        import time
+        from unittest.mock import patch
+
+        from custom_components.torque.const import MIN_UPDATE_INTERVAL
+
         sensor = TorqueSensor("Coolant Temperature", "°C", 5, "Test", {})
         sensor.async_write_ha_state = Mock()
 
@@ -408,11 +420,16 @@ class TestTorqueSensor:
 
         sensor.async_write_ha_state = track_state
 
+        start_time = time.monotonic()
+
         # Simulate inconsistent values that would cause flip-flopping
-        sensor.async_on_update("80.0")  # Initial value
-        sensor.async_on_update("81.0")  # Significant change (> 0.5)
-        sensor.async_on_update("80.5")  # Buffer: [80, 81, 80.5], inconsistent
-        sensor.async_on_update("81.0")  # Buffer: [81, 80.5, 81], inconsistent
+        with patch("time.monotonic", return_value=start_time):
+            sensor.async_on_update("80.0")  # Initial value
+
+        with patch("time.monotonic", return_value=start_time + MIN_UPDATE_INTERVAL + 1):
+            sensor.async_on_update("81.0")  # Significant change (> 0.5)
+            sensor.async_on_update("80.5")  # Buffer: [80, 81, 80.5], inconsistent
+            sensor.async_on_update("81.0")  # Buffer: [81, 80.5, 81], inconsistent
 
         # Without the fix, the debouncing would return 81.0 (last_reported_value)
         # multiple times, causing flip-flops in the state history.
@@ -480,6 +497,89 @@ class TestTorqueSensor:
                 f"Flip-flop detected: value {state_updates[i]:.2f} "
                 f"repeated at position {i} (diff: {diff:.4f})"
             )
+
+    def test_rapid_alternating_values_throttled(self):
+        """Test that rapidly alternating values are throttled by MIN_UPDATE_INTERVAL.
+
+        This tests the issue from the problem statement where sensor values
+        alternate between 5.178 and 35.211 every 1-2 seconds, causing excessive
+        database writes and state history spam.
+        """
+        import time
+        from unittest.mock import patch
+
+        sensor = TorqueSensor("Speed (OBD)", "km/h", 13, "Test", {})
+        sensor.async_write_ha_state = Mock()
+
+        # Track state updates
+        state_updates = []
+
+        def track_state():
+            state_updates.append(sensor._attr_native_value)
+
+        sensor.async_write_ha_state = track_state
+
+        # Simulate the rapid alternating pattern from the issue
+        # Values alternate between ~5 and ~35 km/h every second
+        alternating_values = [str(5.178 if i % 2 == 0 else 35.211) for i in range(8)]
+
+        start_time = time.monotonic()
+        for i, value in enumerate(alternating_values):
+            # Simulate 1 second between updates (mocking time)
+            with patch("time.monotonic", return_value=start_time + i):
+                sensor.async_on_update(value)
+
+        # Should have significantly fewer updates than input values
+        # With MIN_UPDATE_INTERVAL=15, we should only get 1 update
+        assert len(state_updates) == 1, (
+            f"Expected 1 state update due to MIN_UPDATE_INTERVAL=15s, "
+            f"got {len(state_updates)} updates: {state_updates}"
+        )
+
+    def test_min_update_interval_enforced(self):
+        """Test that MIN_UPDATE_INTERVAL is strictly enforced even for large changes."""
+        import time
+        from unittest.mock import patch
+
+        from custom_components.torque.const import MIN_UPDATE_INTERVAL
+
+        sensor = TorqueSensor("Speed (OBD)", "km/h", 13, "Test", {})
+        sensor.async_write_ha_state = Mock()
+
+        state_updates = []
+
+        def track_state():
+            state_updates.append(sensor._attr_native_value)
+
+        sensor.async_write_ha_state = track_state
+
+        start_time = time.monotonic()
+
+        # First update at t=0
+        with patch("time.monotonic", return_value=start_time):
+            sensor.async_on_update("100.0")
+        assert len(state_updates) == 1
+
+        # Large change at t=1 (before MIN_UPDATE_INTERVAL)
+        with patch("time.monotonic", return_value=start_time + 1):
+            sensor.async_on_update("50.0")
+        # Should NOT update because MIN_UPDATE_INTERVAL hasn't passed
+        assert len(state_updates) == 1, (
+            f"Update should be throttled before MIN_UPDATE_INTERVAL, "
+            f"got {len(state_updates)} updates"
+        )
+
+        # Large change at t=16 (after MIN_UPDATE_INTERVAL)
+        # Send consistent values to fill the buffer properly
+        with patch("time.monotonic", return_value=start_time + MIN_UPDATE_INTERVAL + 1):
+            sensor.async_on_update("25.0")
+            sensor.async_on_update("26.0")
+            sensor.async_on_update("25.5")
+        # Should update because MIN_UPDATE_INTERVAL has passed and change is significant
+        assert len(state_updates) == 2, (
+            f"Update should occur after MIN_UPDATE_INTERVAL, "
+            f"got {len(state_updates)} updates: {state_updates}"
+        )
 
 
 class TestTorqueReceiveDataView:

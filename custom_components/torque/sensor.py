@@ -679,19 +679,46 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         if len(self._value_buffer) > DEBOUNCE_BUFFER_SIZE:
             self._value_buffer.pop(0)
 
-        # Determine if we should update based on debounced value
+        # Check if enough time has passed since last update (throttling)
+        # First update is always allowed
+        if self._last_reported_value is not None:
+            time_since_last_update = now - self._last_update
+            if time_since_last_update < MIN_UPDATE_INTERVAL:
+                # Too soon since last update, skip this update
+                return
+
+        # After MIN_UPDATE_INTERVAL has passed (or first update), get debounced value
         debounced_value = self._get_debounced_value()
+
         # Only update if the debounced value is different from current state
         # This prevents flip-flopping when debouncing returns the same old value
         # Note: Check `is not None` first for null-safety, then compare values
         if debounced_value is not None and debounced_value != self._attr_native_value:
-            should_update = self._should_update_value(debounced_value, now)
+            # Check if change is significant enough using the helper method
+            should_update = self._is_change_significant(debounced_value)
 
             if should_update:
                 self._attr_native_value = debounced_value
                 self._last_reported_value = debounced_value
                 self._last_update = now
                 self.async_write_ha_state()
+
+    def _is_change_significant(self, new_value: float) -> bool:
+        """Check if a value change is significant enough to report.
+
+        Args:
+            new_value: New sensor value to check
+
+        Returns:
+            True if the change is significant or this is the first update
+        """
+        # Always update if we don't have a previous value
+        if self._last_reported_value is None:
+            return True
+
+        # Check if the change exceeds the sensor-specific threshold
+        threshold = self._get_significant_change_threshold()
+        return abs(new_value - self._last_reported_value) >= threshold
 
     def _get_debounced_value(self) -> float | None:
         """Get debounced sensor value by checking buffer consistency.
@@ -770,29 +797,20 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         # and let users see the raw data from Torque
         return True
 
-    def _should_update_value(self, new_value: float, current_time: float) -> bool:
-        """Determine if sensor value should be updated.
+    def _should_update_value(self, new_value: float) -> bool:
+        """Determine if sensor value should be updated based on significance.
+
+        Note: Time throttling is now handled in async_on_update before this method
+        is called, so this method only checks if the change is significant.
+        This method delegates to _is_change_significant for the actual logic.
 
         Args:
             new_value: New sensor value
-            current_time: Current time
 
         Returns:
             True if value should be updated
         """
-        # Always update if we don't have a previous value
-        if self._last_reported_value is None:
-            return True
-
-        # Check for significant change using sensor-specific threshold
-        threshold = self._get_significant_change_threshold()
-        is_significant_change = abs(new_value - self._last_reported_value) >= threshold
-
-        # Apply throttling logic: allow immediate updates for significant changes,
-        # but throttle minor updates to prevent spam
-        time_since_last_update = current_time - self._last_update
-
-        return is_significant_change or time_since_last_update >= MIN_UPDATE_INTERVAL
+        return self._is_change_significant(new_value)
 
     async def async_added_to_hass(self) -> None:
         """Restore sensor state when added to Home Assistant."""
