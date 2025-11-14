@@ -43,3 +43,9 @@ DEBOUNCE_BUFFER_SIZE: Final[int] = 3  # Number of values to store for debouncing
 DEBOUNCE_CONSISTENCY_THRESHOLD: Final[float] = (
     2.0  # Max deviation for values to be considered consistent
 )
+
+# GPS sensor PIDs (should update frequently without throttling for device tracking)
+GPS_PIDS: Final[set[int]] = {
+    0xFF1005,  # GPS Longitude
+    0xFF1006,  # GPS Latitude
+}

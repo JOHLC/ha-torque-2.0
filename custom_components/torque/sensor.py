@@ -39,6 +39,7 @@ from .const import (
     DEBOUNCE_CONSISTENCY_THRESHOLD,
     DEFAULT_NAME,
     DOMAIN,
+    GPS_PIDS,
     MIN_UPDATE_INTERVAL,
     SENSOR_EMAIL_FIELD,
     SENSOR_NAME_KEY,
@@ -652,6 +653,17 @@ class TorqueSensor(RestoreSensor, SensorEntity):
 
         return SIGNIFICANT_CHANGE
 
+    def _is_gps_sensor(self) -> bool:
+        """Check if this sensor is a GPS coordinate sensor.
+
+        GPS sensors should update immediately without throttling or debouncing
+        to enable proper device tracking functionality.
+
+        Returns:
+            True if this is a GPS sensor (latitude or longitude)
+        """
+        return self._pid in GPS_PIDS
+
     @callback
     def async_on_update(self, value: str) -> None:
         """Update sensor value from Torque data with debouncing to filter noise.
@@ -674,7 +686,20 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         if not self._is_value_valid(new_value):
             return
 
-        # Add to debounce buffer
+        # GPS sensors bypass throttling and debouncing for real-time tracking
+        if self._is_gps_sensor():
+            # Check if change is significant (use smaller threshold for GPS)
+            if (
+                self._last_reported_value is None
+                or abs(new_value - self._last_reported_value) >= 0.00001
+            ):
+                self._attr_native_value = new_value
+                self._last_reported_value = new_value
+                self._last_update = now
+                self.async_write_ha_state()
+            return
+
+        # Add to debounce buffer for non-GPS sensors
         self._value_buffer.append(new_value)
         if len(self._value_buffer) > DEBOUNCE_BUFFER_SIZE:
             self._value_buffer.pop(0)
