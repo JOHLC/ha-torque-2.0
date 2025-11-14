@@ -700,6 +700,174 @@ class TestTorqueReceiveDataView:
         assert view._get_custom_sensor_name(43, "Other Sensor") == "Other Sensor"
 
 
+class TestGPSSensors:
+    """Test GPS sensor specific behavior."""
+
+    def test_gps_sensor_identification(self):
+        """Test that GPS sensors are correctly identified."""
+        # GPS Longitude sensor
+        gps_lon_sensor = TorqueSensor(
+            name="GPS Longitude",
+            unit="°",
+            pid=0xFF1005,
+            vehicle="Test Vehicle",
+        )
+        assert gps_lon_sensor._is_gps_sensor() is True
+
+        # GPS Latitude sensor
+        gps_lat_sensor = TorqueSensor(
+            name="GPS Latitude",
+            unit="°",
+            pid=0xFF1006,
+            vehicle="Test Vehicle",
+        )
+        assert gps_lat_sensor._is_gps_sensor() is True
+
+        # Non-GPS sensor
+        speed_sensor = TorqueSensor(
+            name="Speed",
+            unit="km/h",
+            pid=0x0D,
+            vehicle="Test Vehicle",
+        )
+        assert speed_sensor._is_gps_sensor() is False
+
+    def test_gps_sensor_bypasses_throttling(self):
+        """Test that GPS sensors update immediately without throttling."""
+        sensor = TorqueSensor(
+            name="GPS Longitude",
+            unit="°",
+            pid=0xFF1005,
+            vehicle="Test Vehicle",
+        )
+        sensor.async_write_ha_state = Mock()
+
+        # Track state updates
+        state_updates = []
+        original_write = sensor.async_write_ha_state
+
+        def track_state():
+            state_updates.append(sensor._attr_native_value)
+            original_write()
+
+        sensor.async_write_ha_state = track_state
+
+        # First update
+        sensor.async_on_update("-77.92161")
+        assert sensor.native_value == -77.92161
+
+        # Second update immediately after (should not be throttled)
+        sensor.async_on_update("-77.92165")
+        assert sensor.native_value == -77.92165
+
+        # Third update immediately after (should not be throttled)
+        sensor.async_on_update("-77.92170")
+        assert sensor.native_value == -77.92170
+
+        # All three updates should have been written
+        assert len(state_updates) == 3
+
+    def test_gps_sensor_no_debouncing(self):
+        """Test that GPS sensors don't use debouncing buffer."""
+        sensor = TorqueSensor(
+            name="GPS Latitude",
+            unit="°",
+            pid=0xFF1006,
+            vehicle="Test Vehicle",
+        )
+        sensor.async_write_ha_state = Mock()
+
+        # GPS sensors should report values immediately without waiting for buffer
+        sensor.async_on_update("42.12345")
+        assert sensor.native_value == 42.12345
+
+        # Next value should also update immediately
+        sensor.async_on_update("42.12346")
+        assert sensor.native_value == 42.12346
+
+        # Buffer should remain empty for GPS sensors
+        assert len(sensor._value_buffer) == 0
+
+    def test_gps_sensor_high_precision_updates(self):
+        """Test that GPS sensors update with high precision changes."""
+        sensor = TorqueSensor(
+            name="GPS Longitude",
+            unit="°",
+            pid=0xFF1005,
+            vehicle="Test Vehicle",
+        )
+        sensor.async_write_ha_state = Mock()
+
+        # Small precision change should still update
+        sensor.async_on_update("-77.921610000")
+        assert sensor.native_value == -77.92161
+
+        # Very small but meaningful change should update
+        sensor.async_on_update("-77.921620000")
+        assert sensor.native_value == -77.92162
+
+    def test_non_gps_sensor_still_throttled(self):
+        """Test that non-GPS sensors still use throttling."""
+        from unittest.mock import patch
+
+        from custom_components.torque.const import MIN_UPDATE_INTERVAL
+
+        sensor = TorqueSensor(
+            name="Speed",
+            unit="km/h",
+            pid=0x0D,
+            vehicle="Test Vehicle",
+        )
+        sensor.async_write_ha_state = Mock()
+
+        # Track state updates
+        state_updates = []
+        original_write = sensor.async_write_ha_state
+
+        def track_state():
+            state_updates.append(sensor._attr_native_value)
+            original_write()
+
+        sensor.async_write_ha_state = track_state
+
+        start_time = 100.0
+
+        # First update
+        with patch(
+            "custom_components.torque.sensor.time.monotonic", return_value=start_time
+        ):
+            sensor.async_on_update("100")
+        assert sensor.native_value == 100.0
+        assert len(state_updates) == 1
+
+        # Immediate second update should be throttled (no state write)
+        with patch(
+            "custom_components.torque.sensor.time.monotonic",
+            return_value=start_time + 1,
+        ):
+            sensor.async_on_update("50")
+
+        # Value should not change because of MIN_UPDATE_INTERVAL
+        # Only first update should be written
+        assert len(state_updates) == 1
+        assert state_updates[0] == 100.0
+
+        # After MIN_UPDATE_INTERVAL, fill buffer with consistent values
+        # for proper debouncing
+        with patch(
+            "custom_components.torque.sensor.time.monotonic",
+            return_value=start_time + MIN_UPDATE_INTERVAL + 1,
+        ):
+            sensor.async_on_update("70")
+            sensor.async_on_update("71")
+            sensor.async_on_update("70.5")
+
+        # Now we should have 2 state updates
+        assert len(state_updates) == 2
+        # Verify the second state is different from first (confirms throttling worked)
+        assert state_updates[1] != state_updates[0]
+
+
 async def test_async_setup_entry(hass, mock_config_entry, mock_add_entities):
     """Test setting up the sensor platform."""
     # Mock hass.http to have register_view
