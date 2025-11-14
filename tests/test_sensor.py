@@ -148,10 +148,14 @@ class TestTorqueSensor:
         assert sensor.unique_id == f"{DOMAIN}_test car_12"
 
     def test_determine_unit_temperature(self):
-        """Test unit determination uses raw unit from Torque."""
+        """Test unit correction for OBD-II standard temperature PIDs.
+
+        PID 0x05 (Coolant Temperature) is an OBD-II standard PID that always
+        returns Celsius regardless of display settings in Torque.
+        """
         sensor = TorqueSensor("Coolant Temp", "°F", 5, "Test", {})
-        # Should use raw unit from Torque, not convert to Celsius
-        assert sensor._attr_native_unit_of_measurement == "°F"
+        # PID 5 (Coolant Temperature) should be corrected to Celsius per OBD-II spec
+        assert sensor._attr_native_unit_of_measurement == UnitOfTemperature.CELSIUS
 
     def test_determine_unit_speed(self):
         """Test that mph unit is normalized to Home Assistant constant."""

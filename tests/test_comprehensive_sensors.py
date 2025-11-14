@@ -21,14 +21,14 @@ class TestComprehensiveRawValuePassthrough:
     @pytest.mark.parametrize(
         "name,unit,pid,expected_unit,expected_device_class,description",
         [
-            # Temperature sensors - should normalize and set device class
+            # Temperature sensors - OBD-II standard PIDs are corrected to Celsius
             (
                 "Coolant Temperature",
                 "°F",
                 5,
-                UnitOfTemperature.FAHRENHEIT,
+                UnitOfTemperature.CELSIUS,
                 SensorDeviceClass.TEMPERATURE,
-                "Should normalize and set device class",
+                "OBD-II PID 0x05 corrected to Celsius",
             ),
             (
                 "Air Intake Temperature",

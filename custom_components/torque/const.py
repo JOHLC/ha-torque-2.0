@@ -49,3 +49,17 @@ GPS_PIDS: Final[set[int]] = {
     0xFF1005,  # GPS Longitude
     0xFF1006,  # GPS Latitude
 }
+
+# OBD-II standard PIDs that always return temperature in Celsius
+# These PIDs report Celsius regardless of what the Torque app displays
+# Reference: SAE J1979 (OBD-II) specification
+OBD2_CELSIUS_PIDS: Final[set[int]] = {
+    0x05,  # Engine Coolant Temperature
+    0x0F,  # Intake Air Temperature
+    0x46,  # Ambient Air Temperature
+    0x5C,  # Engine Oil Temperature
+    0x3C,  # Catalyst Temperature (Bank 1, Sensor 1)
+    0x3D,  # Catalyst Temperature (Bank 2, Sensor 1)
+    0x3E,  # Catalyst Temperature (Bank 1, Sensor 2)
+    0x3F,  # Catalyst Temperature (Bank 2, Sensor 2)
+}
