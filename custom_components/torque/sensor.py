@@ -41,6 +41,7 @@ from .const import (
     DOMAIN,
     GPS_PIDS,
     MIN_UPDATE_INTERVAL,
+    OBD2_CELSIUS_PIDS,
     SENSOR_EMAIL_FIELD,
     SENSOR_NAME_KEY,
     SENSOR_SIGNIFICANT_CHANGES,
@@ -128,6 +129,28 @@ def normalize_unit(unit: str) -> str:
         return UnitOfLength.MILES
 
     # Return original unit if no normalization needed
+    return unit
+
+
+def correct_unit_for_pid(pid: int, unit: str) -> str:
+    """Correct unit based on OBD-II specification for specific PIDs.
+
+    Some OBD-II PIDs always return data in specific units regardless of
+    the Torque app's display settings. This function corrects the unit
+    to match the actual data format from the vehicle.
+
+    Args:
+        pid: PID identifier
+        unit: Unit of measurement from Torque app
+
+    Returns:
+        Corrected unit based on OBD-II specification
+    """
+    # OBD-II standard temperature PIDs always return Celsius
+    if pid in OBD2_CELSIUS_PIDS:
+        return UnitOfTemperature.CELSIUS
+
+    # Return the original unit if no correction is needed
     return unit
 
 
@@ -234,6 +257,8 @@ async def async_setup_entry(
                 pid = int(parts[-1])
                 name = entity.original_name or f"PID {pid}"
                 unit = getattr(entity, "unit_of_measurement", "") or ""
+                # Correct unit based on OBD-II specification for specific PIDs
+                unit = correct_unit_for_pid(pid, unit)
                 # Normalize unit to handle entities that were registered with imperial units before normalization was implemented
                 unit = normalize_unit(unit)
 
@@ -405,6 +430,8 @@ class TorqueReceiveDataView(HomeAssistantView):
             if pid is not None:
                 # Convert degree symbol encoding
                 unit = value.replace("\\xC2\\xB0", "°")
+                # Correct unit based on OBD-II specification for specific PIDs
+                unit = correct_unit_for_pid(pid, unit)
                 # Normalize to Home Assistant standard units
                 unit = normalize_unit(unit)
                 units[pid] = unit
@@ -574,8 +601,10 @@ class TorqueSensor(RestoreSensor, SensorEntity):
         # Debouncing: store recent values to filter out noise
         self._value_buffer: list[float] = []
 
+        # Correct unit based on OBD-II specification for specific PIDs
+        corrected_unit = correct_unit_for_pid(pid, unit) if unit else None
         # Normalize unit to Home Assistant standard units
-        normalized_unit = normalize_unit(unit) if unit else None
+        normalized_unit = normalize_unit(corrected_unit) if corrected_unit else None
 
         # Set up sensor properties
         self._attr_unique_id = f"{DOMAIN}_{vehicle.lower()}_{pid}"
