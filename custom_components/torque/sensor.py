@@ -417,6 +417,14 @@ class TorqueReceiveDataView(HomeAssistantView):
             if pid is not None:
                 if pid in self.sensors:
                     try:
+                        # Add debug logging for GPS sensors
+                        if pid in GPS_PIDS:
+                            _LOGGER.debug(
+                                "Received GPS data for PID %d (%s): %s",
+                                pid,
+                                self.sensors[pid]._attr_name,
+                                value,
+                            )
                         self.sensors[pid].async_on_update(value)
                     except Exception as exc:
                         _LOGGER.error("Error updating sensor for PID %d: %s", pid, exc)
@@ -688,11 +696,20 @@ class TorqueSensor(RestoreSensor, SensorEntity):
 
         # GPS sensors bypass throttling and debouncing for real-time tracking
         if self._is_gps_sensor():
-            # Check if change is significant (use smaller threshold for GPS)
+            # Always update GPS sensors - track every position change for device tracking
+            # GPS coordinates should be updated even if the value is identical to enable
+            # proper device tracking and location history in Home Assistant
             if (
                 self._last_reported_value is None
-                or abs(new_value - self._last_reported_value) >= 0.00001
+                or new_value != self._last_reported_value
             ):
+                _LOGGER.debug(
+                    "GPS sensor %s (PID %d) updating: %s -> %s",
+                    self._attr_name,
+                    self._pid,
+                    self._last_reported_value,
+                    new_value,
+                )
                 self._attr_native_value = new_value
                 self._last_reported_value = new_value
                 self._last_update = now

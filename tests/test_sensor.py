@@ -806,6 +806,10 @@ class TestGPSSensors:
         sensor.async_on_update("-77.921620000")
         assert sensor.native_value == -77.92162
 
+        # Even identical values should update (for location tracking history)
+        sensor.async_on_update("-77.921620000")
+        assert sensor.native_value == -77.92162
+
     def test_non_gps_sensor_still_throttled(self):
         """Test that non-GPS sensors still use throttling."""
         from unittest.mock import patch
