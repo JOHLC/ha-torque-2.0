@@ -699,15 +699,13 @@ class TorqueSensor(RestoreSensor, SensorEntity):
             # Always update GPS sensors - track every position change for device tracking
             # GPS coordinates should be updated even if the value is identical to enable
             # proper device tracking and location history in Home Assistant
-            if (
-                self._last_reported_value is None
-                or new_value != self._last_reported_value
-            ):
+            # Check against current state to prevent flip-flopping (same as non-GPS fix)
+            if self._attr_native_value is None or new_value != self._attr_native_value:
                 _LOGGER.debug(
                     "GPS sensor %s (PID %d) updating: %s -> %s",
                     self._attr_name,
                     self._pid,
-                    self._last_reported_value,
+                    self._attr_native_value,
                     new_value,
                 )
                 self._attr_native_value = new_value
