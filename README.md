@@ -1,4 +1,8 @@
-# 🚗 **Torque OBD Custom Integration for Home Assistant**
+# ** Archiving this repository **
+Due to several issues overall, I started fresh here: https://github.com/JOHLC/Home-Assistant-Torque-OBDII
+This repo will be archived soon. 
+
+## 🚗 **Torque OBD Custom Integration for Home Assistant**
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/home-assistant/brands/refs/heads/master/custom_integrations/torque_logger/icon%402x.png" alt="Torque OBD Logo" width="125" />
